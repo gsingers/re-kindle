@@ -90,7 +90,7 @@ END {
     box(20, 96, 560, 2, "B")
 
     if (week) {
-        # One row per day: label, icon, min, rain dots, rain text, max.
+        # One row per day: label, icon, rain dots, rain text, then min and max on the right.
         for (k = 0; k < 10 && ti >= 0 && ti + k < nd; k++) {
             i = ti + k; r = 106 + 68 * k
             if (k == 0) text("B", 24, 20, 470, r + 20, "", "Today")
@@ -100,13 +100,13 @@ END {
                 text("B", 26, 64, 470, r + 18, "", dd)
             }
             img(icon(dcode[i], 1) "-48", 128, r + 10)
-            text("R", 26, 192, 330, r + 19, "", deg(dmin[i]))
             dots = int((drain[i] + 10) / 20); if (dots > 5) dots = 5
-            img("dots-" dots, 256, r + 27)
+            img("dots-" dots, 196, r + 27)
             if (dsum[i] == "" || dsum[i] < 0.05) rain = "dry"
             else rain = pct(drain[i]) " · " (dsum[i] < 0.5 ? "<1" : sprintf("%.0f", dsum[i])) " mm"
-            text("R", 18, 380, 120, r + 23, "", rain)
-            text("B", 30, 490, 20, r + 16, "c", deg(dmax[i]))
+            text("R", 18, 322, 180, r + 23, "", rain)
+            text("R", 24, 430, 100, r + 20, "c", deg(dmin[i]))
+            text("B", 30, 500, 20, r + 16, "c", deg(dmax[i]))
             box(20, r + 67, 560, 1, "B")
         }
         if (ti < 0) text("R", 22, 20, 20, 130, "", "No forecast for today")
