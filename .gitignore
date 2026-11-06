@@ -2,6 +2,7 @@
 ._*
 # Mac-side previews
 preview*.html
+preview*.png
 # Written on the Kindle at runtime
 extensions/dashboard/weather.csv
 extensions/dashboard/weather.new
