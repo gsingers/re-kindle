@@ -105,8 +105,8 @@ END {
             if (dsum[i] == "" || dsum[i] < 0.05) rain = "dry"
             else rain = pct(drain[i]) " · " (dsum[i] < 0.5 ? "<1" : sprintf("%.0f", dsum[i])) " mm"
             text("R", 18, 322, 180, r + 23, "", rain)
-            text("R", 24, 430, 100, r + 20, "c", deg(dmin[i]))
-            text("B", 30, 500, 20, r + 16, "c", deg(dmax[i]))
+            text("R", 28, 430, 100, r + 18, "c", deg(dmin[i]))
+            text("R", 28, 500, 20, r + 18, "c", deg(dmax[i]))
             box(20, r + 67, 560, 1, "B")
         }
         if (ti < 0) text("R", 22, 20, 20, 130, "", "No forecast for today")
