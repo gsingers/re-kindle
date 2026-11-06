@@ -4,7 +4,7 @@
 #   R|x|y|w|h|color                        filled box, color B (black) or W (white)
 #   I|name|x|y                             icons/<name>.png
 # Plain POSIX awk so busybox on the Kindle runs it.
-# Vars: place, stale (1 = last fetch failed), utc (HHMM UTC of the last good fetch), home_top (Home button y),
+# Vars: place, stale (1 = last fetch failed), utc (HHMM UTC of the last good fetch),
 #       tab ("today" or "10d"), batt (battery %, empty to hide).
 
 function cond(c) {
@@ -60,11 +60,9 @@ sec == 2 { ht[nh] = $1; htemp[nh] = $2; hcode[nh] = $3; hrain[nh] = $4; hday[nh]
 sec == 3 { dt[nd] = $1; dcode[nd] = $2; dmax[nd] = $3; dmin[nd] = $4; drain[nd] = $5; dsum[nd] = $6; nd++ }
 
 END {
-    if (home_top == "") home_top = 722
-    # Home button, always drawn so there's a way back.
-    frame(20, home_top, 560, 64, 2)
-    text("B", 26, 22, 22, home_top + 17, "c", "Home")
-    if (now == "") { text("B", 28, 20, 20, 20, "", "No weather data yet"); exit }
+    # The place name doubles as the Home button (loop.sh maps taps on it), so draw it first.
+    text("B", 22, 20, 300, 16, "", place)
+    if (now == "") { text("B", 28, 20, 20, 70, "", "No weather data yet"); exit }
 
     split("Monday Tuesday Wednesday Thursday Friday Saturday Sunday", dayname, " ")
     split("January February March April May June July August September October November December", monname, " ")
@@ -72,8 +70,8 @@ END {
     today = substr(now, 1, 10); ti = -1
     for (i = 0; i < nd; i++) if (dt[i] == today) ti = i
 
-    # Header: place, update time, then the tabs (loop.sh maps taps above y=110 to them).
-    text("B", 22, 20, 300, 16, "", place)
+    # Header: update time and battery beside the place, then the tabs (loop.sh maps taps
+    # between y=52 and y=110 to them).
     if (utc != "") {
         mins = (int(utc / 100) * 60 + utc % 100 + int(offset / 60) + 1440) % 1440
         stamp = sprintf("%02d:%02d", int(mins / 60), mins % 60)
@@ -94,22 +92,22 @@ END {
     if (week) {
         # One row per day: label, icon, min, rain dots, rain text, max.
         for (k = 0; k < 10 && ti >= 0 && ti + k < nd; k++) {
-            i = ti + k; r = 106 + 60 * k
-            if (k == 0) text("B", 24, 20, 470, r + 16, "", "Today")
+            i = ti + k; r = 106 + 68 * k
+            if (k == 0) text("B", 24, 20, 470, r + 20, "", "Today")
             else {
                 dd = substr(dt[i], 9, 2) + 0
-                text("R", 16, 20, 520, r + 22, "", toupper(substr(dayname[weekday(substr(dt[i], 1, 4) + 0, substr(dt[i], 6, 2) + 0, dd) + 1], 1, 3)))
-                text("B", 26, 64, 470, r + 14, "", dd)
+                text("R", 16, 20, 520, r + 26, "", toupper(substr(dayname[weekday(substr(dt[i], 1, 4) + 0, substr(dt[i], 6, 2) + 0, dd) + 1], 1, 3)))
+                text("B", 26, 64, 470, r + 18, "", dd)
             }
-            img(icon(dcode[i], 1) "-48", 128, r + 6)
-            text("R", 26, 192, 330, r + 15, "", deg(dmin[i]))
+            img(icon(dcode[i], 1) "-48", 128, r + 10)
+            text("R", 26, 192, 330, r + 19, "", deg(dmin[i]))
             dots = int((drain[i] + 10) / 20); if (dots > 5) dots = 5
-            img("dots-" dots, 256, r + 23)
+            img("dots-" dots, 256, r + 27)
             if (dsum[i] == "" || dsum[i] < 0.05) rain = "dry"
             else rain = pct(drain[i]) " · " (dsum[i] < 0.5 ? "<1" : sprintf("%.0f", dsum[i])) " mm"
-            text("R", 18, 380, 120, r + 19, "", rain)
-            text("B", 30, 490, 20, r + 12, "c", deg(dmax[i]))
-            box(20, r + 59, 560, 1, "B")
+            text("R", 18, 380, 120, r + 23, "", rain)
+            text("B", 30, 490, 20, r + 16, "c", deg(dmax[i]))
+            box(20, r + 67, 560, 1, "B")
         }
         if (ti < 0) text("R", 22, 20, 20, 130, "", "No forecast for today")
         exit
@@ -122,38 +120,41 @@ END {
     # Count digits and "-" only: awk counts the UTF-8 "°" as 2 bytes, so add it once.
     t = deg(temp); n = t; tw = 0.40
     tw += 0.56 * gsub(/[0-9]/, "", n) + 0.36 * gsub(/-/, "", n)
-    gx = int(20 + (340 - (92 + 12 + tw * 92)) / 2)  # icon art is ~92 px wide inside its 120 px box, 14 px in
-    img(icon(code, isday) "-120", gx - 14, 112)
-    text("B", 92, gx + 104, 240, 124, "", t)
-    text("R", 22, 20, 240, 232, "c", cond(code))
-    if (ti < 0) text("R", 20, 360, 20, 112, "", "No forecast for today")
+    # Icon art is ~124 px wide inside its 160 px box, 18 px in; 14 px gap to the number.
+    # Shrink the number when it wouldn't fit (like -12°) instead of running into the column.
+    px = 124; if (124 + 14 + tw * px > 336) px = int((336 - 138) / tw)
+    gx = int(20 + (340 - (138 + tw * px)) / 2)
+    img(icon(code, isday) "-160", gx - 18, 112)
+    text("B", px, gx + 138, 240, 140 + int((124 - px) / 2), "", t)
+    text("R", 26, 20, 240, 286, "c", cond(code))
+    if (ti < 0) text("R", 22, 360, 20, 120, "", "No forecast for today")
     else {
-        text("B", 24, 360, 20, 112, "", "Today " deg(dmax[ti]) " / " deg(dmin[ti]))
-        text("R", 18, 360, 20, 146, "", cond(dcode[ti]))
-        text("R", 18, 360, 20, 170, "", "Rain " pct(drain[ti]) "   Humidity " pct(hum))
+        text("B", 28, 360, 20, 120, "", "Today " deg(dmax[ti]) " / " deg(dmin[ti]))
+        text("R", 22, 360, 20, 160, "", cond(dcode[ti]))
+        text("R", 20, 360, 20, 192, "", "Rain " pct(drain[ti]) "  Humidity " pct(hum))
         if (ti + 1 < nd) {
-            img(icon(dcode[ti + 1], 1) "-48", 356, 204)
-            text("R", 18, 414, 20, 204, "", "Tomorrow")
-            text("B", 22, 414, 20, 228, "", deg(dmax[ti + 1]) " / " deg(dmin[ti + 1]) "   " pct(drain[ti + 1]))
+            img(icon(dcode[ti + 1], 1) "-48", 356, 240)
+            text("R", 20, 414, 20, 236, "", "Tomorrow")
+            text("B", 24, 414, 20, 264, "", deg(dmax[ti + 1]) " / " deg(dmin[ti + 1]) "   " pct(drain[ti + 1]))
         }
     }
 
     # Next hours, every 3 h, in a bordered strip.
-    frame(20, 272, 560, 172, 2)
+    frame(20, 336, 560, 176, 2)
     start = nh
     for (i = nh - 1; i >= 0; i--) if (ht[i] > now) start = i
     for (s = 0; s < 7 && start + 3 * s < nh; s++) {
         i = start + 3 * s; x = 20 + 80 * s; r = 600 - x - 80
-        text("R", 18, x, r, 284, "c", substr(ht[i], 12, 5))
-        img(icon(hcode[i], hday[i]) "-48", x + 16, 312)
-        text("B", 24, x, r, 366, "c", deg(htemp[i]))
-        text("R", 18, x, r, 404, "c", pct(hrain[i]))
+        text("R", 18, x, r, 348, "c", substr(ht[i], 12, 5))
+        img(icon(hcode[i], hday[i]) "-48", x + 16, 376)
+        text("B", 24, x, r, 430, "c", deg(htemp[i]))
+        text("R", 18, x, r, 468, "c", pct(hrain[i]))
     }
 
     # Date card: big day number; weekday, month and a small year beside it.
-    frame(20, 456, 560, 252, 2)
-    text("B", 180, 22, 340, 486, "c", d)
-    text("R", 28, 270, 22, 504, "", dayname[weekday(y, m, d) + 1])
-    text("B", 50, 270, 22, 544, "", monname[m])  # "September" is the widest; it must stay on one line
-    text("R", 26, 272, 22, 612, "", y)
+    frame(20, 526, 560, 260, 2)
+    text("B", 180, 22, 340, 556, "c", d)
+    text("R", 28, 270, 22, 576, "", dayname[weekday(y, m, d) + 1])
+    text("B", 50, 270, 22, 616, "", monname[m])  # "September" is the widest; it must stay on one line
+    text("R", 26, 272, 22, 684, "", y)
 }

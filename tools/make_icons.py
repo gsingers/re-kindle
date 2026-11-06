@@ -11,7 +11,7 @@ import zlib
 from pathlib import Path
 
 OUT = Path(__file__).resolve().parent.parent / "extensions" / "dashboard" / "icons"
-SIZES = {120: 5, 48: 3}  # icon px -> stroke width px
+SIZES = {160: 6, 120: 5, 48: 3}  # icon px -> stroke width px
 SS = 4  # supersampling factor
 
 

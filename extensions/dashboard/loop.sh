@@ -1,7 +1,7 @@
 #!/bin/sh
 # Fetches the weather over Wi-Fi and draws the dashboard with FBInk, forever.
 # Pauses the Kindle's own UI (cvm) so nothing draws over it; tapping the Home
-# button at the bottom runs stop.sh, which resumes the UI and goes to the home screen.
+# place name at the top left (e.g. "Vienna") runs stop.sh, which resumes the UI and goes to the home screen.
 # To save battery, between refreshes Wi-Fi is off and the Kindle is suspended (the e-ink
 # keeps showing the dashboard); an RTC alarm wakes it for the next refresh. Taps don't
 # work while it sleeps: the power button wakes it for IDLE seconds of tabs/Home.
@@ -18,8 +18,8 @@ WIFI_WAIT=60                # longest wait for Wi-Fi to bring data after turning
                             # happens as soon as it works
 SLEEP=1                     # 1 = suspend between refreshes, 0 = stay awake (Wi-Fi still goes off)
 TOUCH=/dev/input/event1     # touchscreen device
-HOME_TOP=722                # y where the Home button starts; touches below it go Home
-TABS_BOTTOM=110             # touches above this y pick a tab: x < 190 Today, 190-360 10 days
+HOME_ZONE="220 52"          # touching the place name (left of x=220, above y=52) goes Home
+TABS_BOTTOM=110             # touches from y=52 to here pick a tab: x < 190 Today, 190-360 10 days
 FONT=""                     # leave empty to pick a Kindle system font automatically
 FONT_BOLD=""
 
@@ -72,7 +72,7 @@ draw_eips() {  # fallback when FBInk can't run: plain text, Home row near the bo
 
 # Reads raw touch events (16 bytes each on this 32-bit Kindle). Fields after od:
 # sec sec usec usec type code value value. Acts once per new touch position:
-# Home button -> stop.sh; otherwise writes the wanted tab ("-" = no change) to $DIR/tap
+# place name -> stop.sh (Home); otherwise writes the wanted tab ("-" = no change) to $DIR/tap
 # for the main loop, which does all the drawing. The device stays open on fd 3:
 # evdev only queues events for an open reader.
 watch_touch() {
@@ -84,13 +84,14 @@ watch_touch() {
             case "$6" in 53|0) x=$7; moved=1 ;; 54|1) y=$7; moved=1 ;; esac
         elif [ "$5" = 0 ] && [ "$moved" = 1 ] && [ "$y" -ge 0 ]; then
             moved=0
-            if [ "$y" -gt $((HOME_TOP - 10)) ]; then
+            set -- $HOME_ZONE
+            if [ "$x" -ge 0 ] && [ "$x" -lt "$1" ] && [ "$y" -lt "$2" ]; then
                 echo "$(date) home tapped (x=$x y=$y)"
                 sh "$DIR/stop.sh"
                 exit 0
             fi
             t=-
-            if [ "$y" -lt "$TABS_BOTTOM" ] && [ "$x" -ge 0 ]; then
+            if [ "$y" -ge "$2" ] && [ "$y" -lt "$TABS_BOTTOM" ] && [ "$x" -ge 0 ]; then
                 if [ "$x" -lt 190 ]; then t=today; elif [ "$x" -lt 360 ]; then t=10d; fi
                 echo "$(date) tab tap (x=$x y=$y) -> $t"
             fi
@@ -190,7 +191,7 @@ while :; do
     fi
     if [ -n "$redraw" ]; then
         t0=$(date +%s)
-        awk -v place="$PLACE" -v stale="$stale" -v utc="$good_utc" -v home_top="$HOME_TOP" -v tab="$tab" -v batt="$batt" \
+        awk -v place="$PLACE" -v stale="$stale" -v utc="$good_utc" -v tab="$tab" -v batt="$batt" \
             -f "$DIR/render.awk" "$DIR/weather.csv" | $draw
         echo "$(date) drew $tab in $(($(date +%s) - t0)) s"
     fi
