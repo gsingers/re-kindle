@@ -14,3 +14,6 @@ extensions/dashboard/autostart
 extensions/dashboard/fbink-info.txt
 extensions/dashboard/powerd.txt
 extensions/dashboard/probe.txt
+extensions/dashboard/prayer.txt
+extensions/dashboard/prayer.json
+extensions/dashboard/prayer.new

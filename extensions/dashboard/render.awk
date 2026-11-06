@@ -5,7 +5,8 @@
 #   I|name|x|y                             icons/<name>.png
 # Plain POSIX awk so busybox on the Kindle runs it.
 # Vars: place, stale (1 = last fetch failed), utc (HHMM UTC of the last good fetch),
-#       tab ("today" or "10d"), batt (battery %, empty to hide).
+#       tab ("today" or "10d"), batt (battery %, empty to hide), card (bottom card: 0 date, 1 prayer).
+# Input: weather.csv, then optionally prayer.txt (see loop.sh's fetch_prayer).
 
 function cond(c) {
     c = int(c)
@@ -52,6 +53,7 @@ function img(name, x, y) { print "I|" name "|" x "|" y }
 
 BEGIN { FS = ","; sec = 0; nh = 0; nd = 0; offset = 0 }  # counters must start numeric: an unset one indexes as ""
 { sub(/\r$/, "") }
+NR != FNR { pr[$1] = $2; next }  # second file, prayer.txt: day,YYYY-MM-DD / hijri,DD-MM-YYYY / Fajr,HH:MM ...
 /^$/ { sec++; next }
 $1 == "time" || $1 == "latitude" { next }
 sec == 0 { offset = $4 }
@@ -151,10 +153,36 @@ END {
         text("R", 18, x, r, 468, "c", pct(hrain[i]))
     }
 
-    # Date card: big day number; weekday, month and a small year beside it.
+    # Bottom card, switched by tapping it: 0 = date, 1 = prayer times. Dots show which.
     frame(20, 526, 560, 260, 2)
-    text("B", 180, 22, 340, 556, "c", d)
-    text("R", 28, 270, 22, 576, "", dayname[weekday(y, m, d) + 1])
-    text("B", 50, 270, 22, 616, "", monname[m])  # "September" is the widest; it must stay on one line
-    text("R", 26, 272, 22, 684, "", y)
+    if (card == 1) prayer_card(today, stamp)
+    else {
+        text("B", 180, 22, 340, 556, "c", d)
+        text("R", 28, 270, 22, 576, "", dayname[weekday(y, m, d) + 1])
+        text("B", 50, 270, 22, 616, "", monname[m])  # "September" is the widest; it must stay on one line
+        text("R", 26, 272, 22, 684, "", y)
+    }
+    for (j = 0; j < 2; j++) if (j == card + 0) box(286 + 20 * j, 768, 8, 8, "B"); else frame(286 + 20 * j, 768, 8, 8, 2)
+}
+
+# Today's prayers in a 3 x 2 grid; the next one is drawn inverted.
+function prayer_card(today, stamp,   names, hm, k, c, r, x, y, nexti, now_m, t, f) {
+    text("B", 24, 40, 300, 542, "", "Prayer times")
+    if (pr["Fajr"] == "") { text("R", 22, 40, 40, 620, "", "Not loaded yet: needs Wi-Fi"); return }
+    if (pr["day"] != today) text("R", 20, 300, 40, 546, "c", "for " pr["day"])
+    else if (split(pr["hijri"], hm, "-") == 3) {
+        split("Muharram,Safar,Rabi I,Rabi II,Jumada I,Jumada II,Rajab,Shaban,Ramadan,Shawwal,Dhul Qadah,Dhul Hijjah", names, ",")
+        text("R", 20, 300, 40, 546, "c", (hm[1] + 0) " " names[hm[2] + 0] " " hm[3])
+    }
+    split("Fajr Sunrise Dhuhr Asr Maghrib Isha", names, " ")
+    now_m = substr(stamp, 1, 2) * 60 + substr(stamp, 4, 2)
+    nexti = 0  # first prayer still ahead today (Sunrise isn't a prayer); none after Isha
+    for (k = 6; k >= 1; k--) if (k != 2 && pr[names[k]] != "" && substr(pr[names[k]], 1, 2) * 60 + substr(pr[names[k]], 4, 2) > now_m) nexti = k
+    for (k = 1; k <= 6; k++) {
+        c = (k - 1) % 3; r = int((k - 1) / 3)
+        x = 22 + 185 * c; y = 584 + 92 * r; f = "c"
+        if (k == nexti) { box(x + 8, y, 169, 86, "B"); f = "ci" }
+        text("R", 22, x, 600 - x - 185, y + 8, f, names[k])
+        text("B", 40, x, 600 - x - 185, y + 36, f, pr[names[k]] == "" ? "-" : pr[names[k]])
+    }
 }

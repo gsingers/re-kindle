@@ -47,11 +47,22 @@ expect "$week" "|dry"
 expect "$week" "|37% · 16 mm"
 [ "$(printf '%s\n' "$week" | grep -c '^I|dots-')" = 10 ] || { echo "10d tab should have 10 rows"; fail=1; }
 case "$week" in *Tomorrow*) echo "10d tab drew the Today view"; fail=1 ;; esac
+pray=$(mktemp)
+printf 'day,2026-11-04\nFajr,05:01\nSunrise,06:47\nDhuhr,11:38\nAsr,14:05\nMaghrib,16:28\nIsha,18:09\nhijri,26-05-1448\n' > "$pray"
+card=$(fixture | awk -v place=Vienna -v batt=87 -v utc=1530 -v card=1 -f render.awk - "$pray")  # 16:30 local
+rm -f "$pray"
+expect "$card" "|c|Fajr"
+expect "$card" "|c|05:01"
+expect "$card" "|26 Jumada I 1448"
+expect "$card" "R|400|676|169|86|B"        # next prayer (Isha) inverted
+expect "$card" "|ci|18:09"
+case "$card" in *November*) echo "prayer card also drew the date"; fail=1 ;; esac
+expect "$(fixture | render -v utc=1530 -v card=1)" "Not loaded yet"
 empty=$(printf '' | render)
 expect "$empty" "||Vienna"                 # the place name is the way Home
 expect "$empty" "No weather data yet"
 # Everything must fit on the 600x800 screen.
-printf '%s\n%s\n' "$out" "$week" | awk -F'|' '
+printf '%s\n%s\n%s\n' "$out" "$week" "$card" | awk -F'|' '
     $1 == "R" { x = $2; y = $3; r = $2 + $4; b = $3 + $5 }
     $1 == "I" { n = split($2, p, "-"); w = h = p[n] + 0; if ($2 ~ /^dots/) { w = 110; h = 14 }
                 x = $3; y = $4; r = $3 + w; b = $4 + h }
