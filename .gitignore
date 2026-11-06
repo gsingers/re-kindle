@@ -1,0 +1,16 @@
+.DS_Store
+._*
+# Mac-side previews
+preview*.html
+# Written on the Kindle at runtime
+extensions/dashboard/weather.csv
+extensions/dashboard/weather.new
+extensions/dashboard/log.txt
+extensions/dashboard/pid
+extensions/dashboard/touch.pid
+extensions/dashboard/tap
+extensions/dashboard/tap.read
+extensions/dashboard/autostart
+extensions/dashboard/fbink-info.txt
+extensions/dashboard/powerd.txt
+extensions/dashboard/probe.txt

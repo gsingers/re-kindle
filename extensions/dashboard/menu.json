@@ -1,0 +1,15 @@
+{
+  "items": [
+    {
+      "name": "Dashboard",
+      "priority": 0,
+      "items": [
+        {"name": "Start", "priority": 1, "action": "/bin/sh", "params": "/mnt/us/extensions/dashboard/start.sh", "exitmenu": true},
+        {"name": "Stop", "priority": 2, "action": "/bin/sh", "params": "/mnt/us/extensions/dashboard/stop.sh"},
+        {"name": "Autostart on", "priority": 3, "action": "/bin/sh", "params": "/mnt/us/extensions/dashboard/autostart.sh on"},
+        {"name": "Autostart off", "priority": 4, "action": "/bin/sh", "params": "/mnt/us/extensions/dashboard/autostart.sh off"},
+        {"name": "Probe", "priority": 5, "action": "/bin/sh", "params": "/mnt/us/extensions/dashboard/probe.sh"}
+      ]
+    }
+  ]
+}

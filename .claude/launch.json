@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "dashboard",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": ["-u", "server.py"],
+      "port": 8080
+    },
+    {
+      "name": "preview",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": ["-m", "http.server", "8090", "--bind", "127.0.0.1"],
+      "port": 8090
+    }
+  ]
+}
