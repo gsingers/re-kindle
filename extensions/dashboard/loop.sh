@@ -15,7 +15,7 @@ LAT=48.2049
 LON=16.3662
 TIMEZONE="Europe%2FVienna"
 INTERVAL=3600               # seconds between weather refreshes (forecasts update about hourly)
-NIGHT="23 6"                # local hours with no refreshes: from 23:00 it sleeps until 06:00
+NIGHT="1 7"                 # local hours with no refreshes: from 01:00 it sleeps until 07:00
                             # (empty = refresh all night)
 IDLE=20                     # seconds after the last touch (or a power-button wake) before going
                             # back to Today and to sleep
