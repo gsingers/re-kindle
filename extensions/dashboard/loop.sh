@@ -31,7 +31,7 @@ PRAYER_METHOD=3             # aladhan.com calculation method: 3 = Muslim World L
                             # 2 = ISNA, 4 = Umm al-Qura (full list: aladhan.com/calculation-methods)
 FONT=""                     # leave empty to pick a Kindle system font automatically
 FONT_BOLD=""
-GREY=GRAY7                  # shade of secondary text: GRAY1 (darkest) to GRAYE (lightest)
+GREY=GRAY4                  # shade of secondary text: GRAY1 (darkest) to GRAYE (lightest)
 
 DIR=${DASH_DIR:-/mnt/us/extensions/dashboard}  # overridable for a Mac rehearsal
 POWER_STATE=${POWER_STATE:-/sys/power/state}
@@ -86,7 +86,7 @@ draw_fbink() {
 
 draw_eips() {  # fallback when FBInk can't run: plain text
     eips -c
-    eips 1 2 "FBInk failed: see dashboard/log.txt" >/dev/null
+    eips 1 2 "FBInk failed to start" >/dev/null
     eips 1 4 "$(sed -n 5p "$DIR/weather.csv" 2>/dev/null | cut -d, -f1,2)" >/dev/null
     eips 1 23 "Tap the top-left corner for the Kindle Home" >/dev/null
 }
@@ -133,8 +133,7 @@ echo "$(date) starting"
 [ -n "$FONT_BOLD" ] || FONT_BOLD=$(pick_font 'ember.*bold' 'helvetica.*75' 'helvetica.*bold' 'futura.*bold' 'caecilia.*75' 'caecilia.*bold')
 [ -n "$FONT_BOLD" ] || FONT_BOLD=$FONT
 echo "fonts: $FONT / $FONT_BOLD"
-grep -m1 '^Hardware' /proc/cpuinfo
-if "$FBINK" -e > "$DIR/fbink-info.txt" 2>&1 && [ -n "$FONT" ]; then draw=draw_fbink; else draw=draw_eips; echo "fbink or fonts unavailable, using eips"; fi
+if "$FBINK" -e > /dev/null 2>&1 && [ -n "$FONT" ]; then draw=draw_fbink; else draw=draw_eips; echo "fbink or fonts unavailable, using eips"; fi
 
 # Let KUAL close cleanly before the UI is paused.
 sleep 5
@@ -217,11 +216,6 @@ suspend_until() {
     fi
 }
 
-# What this Kindle offers for sleeping, for tuning (first runs only need it).
-id
-for r in "$RTC"/rtc*; do echo "$r: $(cat "$r/name" 2>/dev/null)"; done
-lipc-probe -v com.lab126.powerd > "$DIR/powerd.txt" 2>&1
-
 # One loop does all the drawing, so the touch watcher never draws over it.
 # Awake, it checks for taps every second; once idle on Today it sleeps until the next refresh.
 tab=today; card=0; touched=$(date +%s); due=0; pdue=""; stale=0; good_utc=""; fails=0
@@ -244,8 +238,6 @@ while :; do
         due=$(next_refresh "$(date +%s)")
         echo "$(date) next refresh in $(((due - $(date +%s)) / 60)) min"
         redraw=1
-        # Keep the log from filling the Kindle.
-        [ "$(wc -c < "$DIR/log.txt")" -gt 100000 ] && : > "$DIR/log.txt"
     fi
     [ -n "$pdue" ] && [ "$now" -ge "$pdue" ] && redraw=1  # a prayer time passed
     if [ -n "$redraw" ]; then

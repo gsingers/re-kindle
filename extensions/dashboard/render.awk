@@ -3,7 +3,8 @@
 #   T|style|px|left|right|top|flags|text   style R/B; flags: c = centred between margins, i = white text, g = grey text
 #   R|x|y|w|h|color                        filled box: B (black), W (white) or an FBInk grey like GRAYA
 #   I|name|x|y                             icons/<name>.png
-# Plain POSIX awk so busybox on the Kindle runs it.
+# Plain POSIX awk so busybox on the Kindle runs it. Never write `name (...)` to join a
+# variable and a bracketed expression: busybox reads it as a call to a function "name".
 # Vars: place, stale (1 = last fetch failed), utc (HHMM UTC of the last good fetch), clock (HHMM UTC now),
 #       tab ("today" or "10d"), batt (battery %, empty to hide), card (bottom card: 0 date, 1 prayer).
 # Input: weather.csv, then optionally prayer.txt (see loop.sh's fetch_prayer).
@@ -166,14 +167,15 @@ END {
     text("B", px, gx + 138, 240, 132 + int((124 - px) / 2), "", t)
     text("R", 26, 20, 240, 268, "c", cond(code))
     s = feel == "" ? "" : "Feels like " deg(feel)
-    if (hum != "") s = s (s == "" ? "" : " · ") "Humidity " pct(hum)
+    if (hum != "") s = (s == "" ? "" : s " · ") "Humidity " pct(hum)
     text("R", 20, 20, 240, 304, "cg", s)
     if (ti < 0) text("R", 22, 360, 20, 120, "", "No forecast for today")
     else {
         text("R", 18, 360, 20, 112, "g", "Today")
         text("B", 32, 360, 20, 132, "", deg(dmax[ti]) " / " deg(dmin[ti]))
         text("R", 22, 360, 20, 174, "", cond(dcode[ti]))
-        text("R", 18, 360, 20, 204, "g", pct(drain[ti]) " rain" (wind == "" ? "" : " · " sprintf("%.0f", wind) " km/h"))
+        w = wind == "" ? "" : " · " sprintf("%.0f", wind) " km/h"
+        text("R", 18, 360, 20, 204, "g", pct(drain[ti]) " rain" w)
         if (ti + 1 < nd) {
             box(360, 238, 220, 1, "GRAYA")
             img(icon(dcode[ti + 1], 1) "-48", 356, 256)

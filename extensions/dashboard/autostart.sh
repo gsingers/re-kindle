@@ -14,5 +14,4 @@ else
     msg="Autostart off."
 fi
 [ "$1" = on ] && [ ! -f /etc/upstart/dashboard.conf ] && msg="Autostart FAILED: could not install the boot job."
-echo "$(date) $msg" >> "$DIR/log.txt"
 eips 0 38 "$msg"
