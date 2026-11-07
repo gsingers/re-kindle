@@ -170,20 +170,20 @@ END {
         }
     }
 
-    # Next hours, every 3 h, in a bordered strip.
-    frame(20, 338, 560, 162, 2)
+    # Next hours, every 3 h. Widgets are separated by single rules, not boxed.
+    box(20, 334, 560, 1, "B")
     start = nh
     for (i = nh - 1; i >= 0; i--) if (ht[i] > now) start = i
     for (s = 0; s < 7 && start + 3 * s < nh; s++) {
         i = start + 3 * s; x = 20 + 80 * s; r = 600 - x - 80
-        text("R", 18, x, r, 350, "cg", hm(ht[i]))
-        img(icon(hcode[i], hday[i]) "-48", x + 16, 374)
-        text("B", 24, x, r, 426, "c", deg(htemp[i]))
-        text("R", 18, x, r, 462, "cg", pct(hrain[i]))
+        text("R", 18, x, r, 354, "cg", hm(ht[i]))
+        img(icon(hcode[i], hday[i]) "-48", x + 16, 378)
+        text("B", 24, x, r, 430, "c", deg(htemp[i]))
+        text("R", 18, x, r, 466, "cg", pct(hrain[i]))
     }
 
     # Bottom card, switched by tapping it: 0 = date, 1 = prayer times. Dots show which.
-    frame(20, 512, 560, 274, 2)
+    box(20, 506, 560, 1, "B")
     if (card == 1) prayer_card(today, nowm)
     else {
         text("B", 180, 22, 340, 532, "c", d)
@@ -197,13 +197,13 @@ END {
 
 # Today's prayers in a 3 x 2 grid: the next one inverted, the ones already past in grey.
 function prayer_card(today, now_m,   names, hd, k, c, r, x, y, nexti, f, g, live) {
-    text("B", 24, 40, 300, 530, "", "Prayer times")
+    text("B", 24, 20, 300, 530, "", "Prayer times")
     if (pr["Fajr"] == "") { text("R", 22, 40, 40, 630, "cg", "Not loaded yet, needs Wi-Fi"); return }
     live = pr["day"] == today
-    if (!live) text("R", 20, 232, 40, 534, "g", "for " pr["day"])
+    if (!live) text("R", 20, 212, 20, 534, "g", "for " pr["day"])
     else if (split(pr["hijri"], hd, "-") == 3) {
         split("Muharram,Safar,Rabi I,Rabi II,Jumada I,Jumada II,Rajab,Shaban,Ramadan,Shawwal,Dhul Qadah,Dhul Hijjah", names, ",")
-        text("R", 20, 232, 40, 534, "g", (hd[1] + 0) " " names[hd[2] + 0] " " hd[3])
+        text("R", 20, 212, 20, 534, "g", (hd[1] + 0) " " names[hd[2] + 0] " " hd[3])
     }
     split("Fajr Sunrise Dhuhr Asr Maghrib Isha", names, " ")
     nexti = 7  # first prayer still ahead today (Sunrise isn't a prayer); 7 = all past

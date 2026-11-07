@@ -20,7 +20,7 @@ SLEEP=1                     # 1 = suspend between refreshes, 0 = stay awake (Wi-
 TOUCH=/dev/input/event1     # touchscreen device
 HOME_ZONE="220 52"          # touching the place name (left of x=220, above y=52) goes Home
 TABS_BOTTOM=98              # touches from y=52 to here pick a tab: left half Today, right half 10 days
-CARD_TOP=512                # on Today, touches below this y switch the bottom card (date / prayer times)
+CARD_TOP=506                # on Today, touches below this y switch the bottom card (date / prayer times)
 CARDS=2                     # number of bottom cards (see render.awk)
 PRAYER_METHOD=3             # aladhan.com calculation method: 3 = Muslim World League, 13 = Diyanet,
                             # 2 = ISNA, 4 = Umm al-Qura (full list: aladhan.com/calculation-methods)

@@ -34,6 +34,9 @@ expect "$out" "|c|-4°"                     # negative temperatures round away f
 expect "$out" "I|storm-48|"                # unknown codes >= 95 count as storms
 expect "$out" "|cg|-"                      # missing rain chance
 expect "$out" "T|B|180|22|340|532|c|4"     # big day number
+expect "$out" "R|20|334|560|1|B"          # single rules between widgets, no boxes
+expect "$out" "R|20|506|560|1|B"
+case "$out" in *"|560|162|"*|*"|560|274|"*) echo "widgets should not be boxed"; fail=1 ;; esac
 expect "$out" "||Wednesday"
 expect "$out" "||November"
 expect "$out" "|g|2026"
