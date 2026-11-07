@@ -5,14 +5,19 @@
 # To save battery, between refreshes Wi-Fi is off and the Kindle is suspended (the e-ink
 # keeps showing the dashboard); an RTC alarm wakes it for the next refresh. Taps don't
 # work while it sleeps: the power button wakes it for IDLE seconds of tabs/Home.
+# Battery savers: hourly refreshes, none at NIGHT, no redraw when the screen would come out
+# the same, and while the prayer card shows, short Wi-Fi-free wakes at each prayer time
+# (and midnight) so the next-prayer highlight moves on.
 
 # Tuning knobs
 PLACE="Vienna"
 LAT=48.2049
 LON=16.3662
 TIMEZONE="Europe%2FVienna"
-INTERVAL=900                # seconds between weather refreshes
-IDLE=60                     # seconds after the last touch (or a power-button wake) before going
+INTERVAL=3600               # seconds between weather refreshes (forecasts update about hourly)
+NIGHT="23 6"                # local hours with no refreshes: from 23:00 it sleeps until 06:00
+                            # (empty = refresh all night)
+IDLE=20                     # seconds after the last touch (or a power-button wake) before going
                             # back to Today and to sleep
 WIFI_WAIT=60                # longest wait for Wi-Fi to bring data after turning it on; the fetch
                             # happens as soon as it works
@@ -168,11 +173,34 @@ refresh() {
     echo "$(date) refreshed in $(($(date +%s) - t0)) s, battery $batt%"
 }
 
+utc_offset() { o=$(sed -n 2p "$DIR/weather.csv" 2>/dev/null | cut -d, -f4); echo "${o:-0}"; }
+
+# Epoch of the next weather refresh after epoch $1: INTERVAL later, or the end of NIGHT
+# if that falls inside it. Local time = UTC (the Kindle's clock) + the forecast's offset.
+next_refresh() {
+    set -- "$1" $NIGHT
+    awk -v n=$(($1 + INTERVAL)) -v off="$(utc_offset)" -v a="$2" -v b="$3" 'BEGIN {
+        l = n + off; h = int((l % 86400) / 3600)
+        if (a != "" && (a > b ? h >= a || h < b : h >= a && h < b)) {
+            t = l - l % 86400 + b * 3600; if (t <= l) t += 86400; n = t - off
+        }
+        printf "%d\n", n }'
+}
+
+# Epoch just after the next prayer time (or midnight, when the highlight starts over)
+# after epoch $1. The times are local "HH:MM" lines in prayer.txt.
+prayer_wake() {
+    awk -F, -v now="$1" -v off="$(utc_offset)" '
+        BEGIN { s = (now + off) % 86400; best = 86400 }
+        $2 ~ /^[0-9][0-9]:[0-9][0-9]$/ { t = substr($2, 1, 2) * 3600 + substr($2, 4, 2) * 60; if (t > s && t < best) best = t }
+        END { printf "%d\n", now - s + best + 5 }' "$DIR/prayer.txt"
+}
+
 # Suspends until epoch $1 (RTC alarm) or the power button, whichever comes first.
 # After 3 suspends in a row that fail or return at once, stays awake for good (SLEEP=0).
 suspend_until() {
     left=$(($1 - $(date +%s)))
-    [ "$left" -gt 10 ] || return
+    [ "$left" -gt 10 ] || { sleep 1; return; }  # too close to bother: don't spin the loop
     for a in "$RTC"/rtc*/wakealarm; do echo 0 > "$a" && echo "+$left" > "$a"; done
     sync
     t0=$(date +%s)
@@ -196,8 +224,8 @@ lipc-probe -v com.lab126.powerd > "$DIR/powerd.txt" 2>&1
 
 # One loop does all the drawing, so the touch watcher never draws over it.
 # Awake, it checks for taps every second; once idle on Today it sleeps until the next refresh.
-tab=today; card=0; touched=$(date +%s); due=0; stale=0; good_utc=""; fails=0
-rm -f "$DIR/tap"
+tab=today; card=0; touched=$(date +%s); due=0; pdue=""; stale=0; good_utc=""; fails=0
+rm -f "$DIR/tap" "$DIR/screen.key"  # no screen.key: the first draw always happens
 [ -f "$DIR/prayer.txt" ] || : > "$DIR/prayer.txt"  # awk needs it to exist
 # Keep powerd from blanking the screen or suspending on its own timer while we are awake.
 lipc-set-prop com.lab126.powerd preventScreenSaver 1
@@ -212,20 +240,33 @@ while :; do
     fi
     if [ "$tab" != today ] && [ $((now - touched)) -ge "$IDLE" ]; then tab=today; redraw=1; fi
     if [ "$now" -ge "$due" ]; then
-        due=$((now + INTERVAL))
         refresh
+        due=$(next_refresh "$(date +%s)")
+        echo "$(date) next refresh in $(((due - $(date +%s)) / 60)) min"
         redraw=1
         # Keep the log from filling the Kindle.
         [ "$(wc -c < "$DIR/log.txt")" -gt 100000 ] && : > "$DIR/log.txt"
     fi
+    [ -n "$pdue" ] && [ "$now" -ge "$pdue" ] && redraw=1  # a prayer time passed
     if [ -n "$redraw" ]; then
         t0=$(date +%s)
         awk -v place="$PLACE" -v stale="$stale" -v utc="$good_utc" -v clock="$(date -u +%H%M)" -v tab="$tab" -v batt="$batt" -v card="$card" \
-            -f "$DIR/render.awk" "$DIR/weather.csv" "$DIR/prayer.txt" | $draw
-        echo "$(date) drew $tab in $(($(date +%s) - t0)) s"
+            -f "$DIR/render.awk" "$DIR/weather.csv" "$DIR/prayer.txt" > "$DIR/screen.new"
+        # A full e-ink redraw costs battery: skip it when the screen would come out the same
+        # (the "Updated" time alone doesn't count).
+        key=$(grep -v '|Updated ' "$DIR/screen.new")
+        if [ -f "$DIR/screen.key" ] && [ "$key" = "$(cat "$DIR/screen.key")" ]; then
+            echo "$(date) $tab unchanged, not redrawn"
+        else
+            $draw < "$DIR/screen.new"
+            printf '%s\n' "$key" > "$DIR/screen.key"
+            echo "$(date) drew $tab in $(($(date +%s) - t0)) s"
+        fi
     fi
+    pdue=""; [ "$card" = 1 ] && pdue=$(prayer_wake "$(date +%s)")
     if [ "$SLEEP" = 1 ] && [ "$tab" = today ] && [ $(($(date +%s) - touched)) -ge "$IDLE" ]; then
-        suspend_until "$due"
+        wake=$due; [ -n "$pdue" ] && [ "$pdue" -lt "$wake" ] && wake=$pdue
+        suspend_until "$wake"
     else
         sleep 1
     fi

@@ -79,6 +79,19 @@ expect "$(fixture | render -v utc=1530 -v card=1)" "Not loaded yet"
 empty=$(printf '' | render)
 expect "$empty" "||Vienna"                 # the place name is the way Home
 expect "$empty" "No weather data yet"
+# Battery scheduling from loop.sh: hourly refreshes, none at night, wakes at prayer times.
+eval "$(sed -n '/^utc_offset()/p;/^next_refresh()/,/^}/p;/^prayer_wake()/,/^}/p' loop.sh)"
+DIR=$(mktemp -d); fixture > "$DIR/weather.csv"  # UTC+1
+printf 'day,2026-11-04\nFajr,05:01\nSunrise,06:47\nDhuhr,11:38\nAsr,14:05\nMaghrib,16:28\nIsha,18:09\n' > "$DIR/prayer.txt"
+INTERVAL=3600; NIGHT="23 6"
+same() { [ "$1" = "$2" ] || { echo "$3: got $1, want $2"; fail=1; }; }
+same "$(next_refresh 1793821500)" 1793825100 "20:45 local -> 21:45"
+same "$(next_refresh 1793827800)" 1793854800 "22:30 local -> 06:00 next morning"
+same "$(next_refresh 1793754000)" 1793768400 "02:00 local -> 06:00 same morning"
+NIGHT=""; same "$(next_refresh 1793827800)" 1793831400 "no night window -> 23:30"
+same "$(prayer_wake 1793806200)" 1793812145 "16:30 local -> just after Isha 18:09"
+same "$(prayer_wake 1793827800)" 1793833205 "22:30 local -> just after midnight"
+rm -rf "$DIR"
 # Everything must fit on the 600x800 screen.
 printf '%s\n%s\n%s\n' "$out" "$week" "$card" | awk -F'|' '
     $1 == "R" { x = $2; y = $3; r = $2 + $4; b = $3 + $5 }
