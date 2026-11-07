@@ -31,7 +31,7 @@ PRAYER_METHOD=3             # aladhan.com calculation method: 3 = Muslim World L
                             # 2 = ISNA, 4 = Umm al-Qura (full list: aladhan.com/calculation-methods)
 FONT=""                     # leave empty to pick a Kindle system font automatically
 FONT_BOLD=""
-GREY=GRAY4                  # shade of secondary text: GRAY1 (darkest) to GRAYE (lightest)
+GREY=GRAY2                  # shade of secondary text: GRAY1 (darkest) to GRAYE (lightest)
 
 DIR=${DASH_DIR:-/mnt/us/extensions/dashboard}  # overridable for a Mac rehearsal
 POWER_STATE=${POWER_STATE:-/sys/power/state}
