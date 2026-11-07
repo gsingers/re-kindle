@@ -19,13 +19,14 @@ WIFI_WAIT=60                # longest wait for Wi-Fi to bring data after turning
 SLEEP=1                     # 1 = suspend between refreshes, 0 = stay awake (Wi-Fi still goes off)
 TOUCH=/dev/input/event1     # touchscreen device
 HOME_ZONE="220 52"          # touching the place name (left of x=220, above y=52) goes Home
-TABS_BOTTOM=110             # touches from y=52 to here pick a tab: left half Today, right half 10 days
+TABS_BOTTOM=98              # touches from y=52 to here pick a tab: left half Today, right half 10 days
 CARD_TOP=512                # on Today, touches below this y switch the bottom card (date / prayer times)
 CARDS=2                     # number of bottom cards (see render.awk)
 PRAYER_METHOD=3             # aladhan.com calculation method: 3 = Muslim World League, 13 = Diyanet,
                             # 2 = ISNA, 4 = Umm al-Qura (full list: aladhan.com/calculation-methods)
 FONT=""                     # leave empty to pick a Kindle system font automatically
 FONT_BOLD=""
+GREY=GRAY7                  # shade of secondary text: GRAY1 (darkest) to GRAYE (lightest)
 
 DIR=${DASH_DIR:-/mnt/us/extensions/dashboard}  # overridable for a Mac rehearsal
 POWER_STATE=${POWER_STATE:-/sys/power/state}
@@ -70,7 +71,7 @@ draw_fbink() {
             set -- -q -b -O
             case "$f" in *c*) set -- "$@" -m ;; esac
             case "$f" in *i*) set -- "$@" -h ;; esac
-            case "$f" in *g*) set -- "$@" -C GRAY7 ;; esac
+            case "$f" in *g*) set -- "$@" -C "$GREY" ;; esac
             "$FBINK" "$@" -t "regular=$font,px=$b,top=$e,left=$c,right=$d" -- "$text" ;;
         esac
     done
@@ -220,7 +221,7 @@ while :; do
     fi
     if [ -n "$redraw" ]; then
         t0=$(date +%s)
-        awk -v place="$PLACE" -v stale="$stale" -v utc="$good_utc" -v tab="$tab" -v batt="$batt" -v card="$card" \
+        awk -v place="$PLACE" -v stale="$stale" -v utc="$good_utc" -v clock="$(date -u +%H%M)" -v tab="$tab" -v batt="$batt" -v card="$card" \
             -f "$DIR/render.awk" "$DIR/weather.csv" "$DIR/prayer.txt" | $draw
         echo "$(date) drew $tab in $(($(date +%s) - t0)) s"
     fi

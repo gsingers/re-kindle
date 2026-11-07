@@ -57,7 +57,7 @@ case "$week" in *Tomorrow*) echo "10d tab drew the Today view"; fail=1 ;; esac
 pray=$(mktemp)
 printf 'day,2026-11-04\nFajr,05:01\nSunrise,06:47\nDhuhr,11:38\nAsr,14:05\nMaghrib,16:28\nIsha,18:09\nhijri,26-05-1448\n' > "$pray"
 card=$(fixture | awk -v place=Vienna -v batt=87 -v utc=1530 -v card=1 -f render.awk - "$pray")  # 16:30 local
-late=$(fixture | awk -v place=Vienna -v batt=87 -v utc=2130 -v card=1 -f render.awk - "$pray")  # 22:30, all past
+late=$(fixture | awk -v place=Vienna -v batt=87 -v utc=1530 -v clock=2130 -v card=1 -f render.awk - "$pray")  # fetched 16:30, now 22:30
 old=$(fixture | sed 's/^2026-11-04T20:45/2026-11-05T20:45/' | awk -v place=Vienna -v utc=1530 -v card=1 -f render.awk - "$pray")
 rm -f "$pray"
 expect "$card" "|cg|Fajr"

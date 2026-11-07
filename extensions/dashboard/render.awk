@@ -4,7 +4,7 @@
 #   R|x|y|w|h|color                        filled box: B (black), W (white) or an FBInk grey like GRAYA
 #   I|name|x|y                             icons/<name>.png
 # Plain POSIX awk so busybox on the Kindle runs it.
-# Vars: place, stale (1 = last fetch failed), utc (HHMM UTC of the last good fetch),
+# Vars: place, stale (1 = last fetch failed), utc (HHMM UTC of the last good fetch), clock (HHMM UTC now),
 #       tab ("today" or "10d"), batt (battery %, empty to hide), card (bottom card: 0 date, 1 prayer).
 # Input: weather.csv, then optionally prayer.txt (see loop.sh's fetch_prayer).
 
@@ -83,6 +83,9 @@ END {
         mins = (int(utc / 100) * 60 + utc % 100 + int(offset / 60) + 1440) % 1440
         stamp = sprintf("%02d:%02d", int(mins / 60), mins % 60)
     } else stamp = substr(now, 12, 5)
+    ck = clock != "" ? clock : utc  # the prayer card needs the time now, not the time of the fetch
+    if (ck != "") nowm = (int(ck / 100) * 60 + ck % 100 + int(offset / 60) + 1440) % 1440
+    else nowm = substr(now, 12, 2) * 60 + substr(now, 15, 2)
     if (stale) text("B", 18, 330, 120, 19, "", "Offline · " stamp)
     else text("R", 18, 330, 120, 19, "g", "Updated " stamp)
     if (batt != "") {  # battery outline with a level bar, then the percentage (bold when low)
@@ -181,7 +184,7 @@ END {
 
     # Bottom card, switched by tapping it: 0 = date, 1 = prayer times. Dots show which.
     frame(20, 512, 560, 274, 2)
-    if (card == 1) prayer_card(today, stamp)
+    if (card == 1) prayer_card(today, nowm)
     else {
         text("B", 180, 22, 340, 532, "c", d)
         text("R", 28, 270, 22, 560, "", dayname[weekday(y, m, d) + 1])
@@ -193,7 +196,7 @@ END {
 }
 
 # Today's prayers in a 3 x 2 grid: the next one inverted, the ones already past in grey.
-function prayer_card(today, stamp,   names, hd, k, c, r, x, y, nexti, now_m, f, g, live) {
+function prayer_card(today, now_m,   names, hd, k, c, r, x, y, nexti, f, g, live) {
     text("B", 24, 40, 300, 530, "", "Prayer times")
     if (pr["Fajr"] == "") { text("R", 22, 40, 40, 630, "cg", "Not loaded yet, needs Wi-Fi"); return }
     live = pr["day"] == today
@@ -203,7 +206,6 @@ function prayer_card(today, stamp,   names, hd, k, c, r, x, y, nexti, now_m, f, 
         text("R", 20, 232, 40, 534, "g", (hd[1] + 0) " " names[hd[2] + 0] " " hd[3])
     }
     split("Fajr Sunrise Dhuhr Asr Maghrib Isha", names, " ")
-    now_m = substr(stamp, 1, 2) * 60 + substr(stamp, 4, 2)
     nexti = 7  # first prayer still ahead today (Sunrise isn't a prayer); 7 = all past
     for (k = 6; k >= 1; k--) if (k != 2 && pr[names[k]] != "" && substr(pr[names[k]], 1, 2) * 60 + substr(pr[names[k]], 4, 2) > now_m) nexti = k
     for (k = 1; k <= 6; k++) {
