@@ -50,9 +50,22 @@ function text(style, px, left, right, top, flags, s) { print "T|" style "|" px "
 function box(x, y, w, h, color) { print "R|" x "|" y "|" w "|" h "|" color }
 function frame(x, y, w, h, t) { box(x, y, w, h, "B"); box(x + t, y + t, w - 2 * t, h - 2 * t, "W") }
 function img(name, x, y) { print "I|" name "|" x "|" y }
+# Right-aligned regular text ending at x = edge. FBInk can't right-align, so estimate the
+# width from Helvetica's advances (Amazon Ember is close); the 4 px right margin is slack
+# so a slight underestimate doesn't wrap the text onto a second line.
+function rtext(px, edge, top, flags, s,   w, i, p) {
+    for (i = 1; i <= length(s); i++) { p = index(ADVCHARS, substr(s, i, 1)); w += p ? adv[p] : 0.556 }
+    text("R", px, int(edge - w * px), 4, top, flags, s)
+}
 function hm(t) { return substr(t, 12, 5) }  # "2026-11-07T06:58" -> "06:58"
 
-BEGIN { FS = ","; sec = 0; nh = 0; nd = 0; offset = 0 }  # counters must start numeric: an unset one indexes as ""
+BEGIN {
+    FS = ","; sec = 0; nh = 0; nd = 0; offset = 0
+    ADVCHARS = " 0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    split(".278 .556 .556 .556 .556 .556 .556 .556 .556 .556 .556 " \
+          ".556 .556 .5 .556 .556 .278 .556 .556 .222 .222 .5 .222 .833 .556 .556 .556 .556 .333 .5 .278 .556 .5 .722 .5 .5 .5 " \
+          ".667 .667 .722 .722 .667 .611 .778 .722 .278 .5 .667 .556 .833 .722 .778 .667 .778 .722 .667 .611 .722 .667 .944 .667 .667 .611", adv, " ")
+}  # counters must start numeric: an unset one indexes as ""
 { sub(/\r$/, "") }
 NR != FNR { pr[$1] = $2; next }  # second file, prayer.txt: day,YYYY-MM-DD / Fajr,HH:MM ...
 /^$/ { sec++; next }
@@ -196,19 +209,19 @@ END {
 }
 
 # Today's prayers in a 3 x 2 grid: the next one inverted, the ones already past in grey.
-# Title and the times' date are centred over the grid, like its columns.
+# Title on the left, the times' date on the right.
 function prayer_card(today, now_m,   names, py, pm, pd, k, c, r, x, y, nexti, f, g, live) {
-    text("B", 24, 20, 20, 520, "c", "Prayer times")
+    text("B", 24, 20, 300, 524, "", "Prayer times")
     if (pr["Fajr"] == "") { text("R", 22, 20, 20, 630, "cg", "Not loaded yet, needs Wi-Fi"); return }
     live = pr["day"] == today
     py = substr(pr["day"], 1, 4) + 0; pm = substr(pr["day"], 6, 2) + 0; pd = substr(pr["day"], 9, 2) + 0
-    text("R", 18, 20, 20, 550, "cg", dayname[weekday(py, pm, pd) + 1] " " pd " " monname[pm] " " py)
+    rtext(18, 580, 528, "g", dayname[weekday(py, pm, pd) + 1] " " pd " " monname[pm] " " py)
     split("Fajr Sunrise Dhuhr Asr Maghrib Isha", names, " ")
     nexti = 7  # first prayer still ahead today (Sunrise isn't a prayer); 7 = all past
     for (k = 6; k >= 1; k--) if (k != 2 && pr[names[k]] != "" && substr(pr[names[k]], 1, 2) * 60 + substr(pr[names[k]], 4, 2) > now_m) nexti = k
     for (k = 1; k <= 6; k++) {
         c = (k - 1) % 3; r = int((k - 1) / 3)
-        x = 22 + 185 * c; y = 580 + 92 * r; f = "c"; g = "cg"
+        x = 22 + 185 * c; y = 570 + 94 * r; f = "c"; g = "cg"
         if (live && k == nexti) { box(x + 8, y, 169, 86, "B"); f = g = "ci" }
         else if (live && k < nexti) f = "cg"
         text("R", 22, x, 600 - x - 185, y + 8, g, names[k])

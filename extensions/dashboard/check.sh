@@ -66,13 +66,13 @@ rm -f "$pray"
 expect "$card" "|cg|Fajr"
 expect "$card" "|cg|05:01"                 # past prayers in grey
 expect "$card" "|cg|16:28"                 # Maghrib is just past at 16:30
-expect "$card" "T|B|24|20|20|520|c|Prayer times"  # centred over the grid
-expect "$card" "|cg|Wednesday 4 November 2026"   # Gregorian date of the times
-expect "$card" "R|400|672|169|86|B"        # next prayer (Isha) inverted
+expect "$card" "T|B|24|20|300|524||Prayer times"  # title on the left
+expect "$card" "T|R|18|336|4|528|g|Wednesday 4 November 2026"  # date right-aligned to x=580
+expect "$card" "R|400|664|169|86|B"        # next prayer (Isha) inverted
 expect "$card" "|ci|18:09"
 expect "$late" "|cg|18:09"
 case "$late" in *"|ci|"*) echo "nothing should be highlighted after Isha"; fail=1 ;; esac
-expect "$old" "|cg|Wednesday 4 November 2026"   # older times say which day they are for
+expect "$old" "|g|Wednesday 4 November 2026"   # older times say which day they are for
 case "$old" in *"|ci|"*) echo "another day's times must not be highlighted"; fail=1 ;; esac
 case "$card" in *"||November"*) echo "prayer card also drew the date card"; fail=1 ;; esac
 expect "$(fixture | render -v utc=1530 -v card=1)" "Not loaded yet"
