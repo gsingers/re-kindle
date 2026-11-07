@@ -44,8 +44,7 @@ fetch() {
 fetch_prayer() {
     u="https://api.aladhan.com/v1/timings/$(echo "$1" | awk -F- '{ print $3 "-" $2 "-" $1 }')?latitude=$LAT&longitude=$LON&method=$PRAYER_METHOD&timezonestring=$TIMEZONE"
     curl -s -S -f -m 15 -o "$DIR/prayer.json" "$u" || { echo "$(date) prayer times: fetch failed"; return; }
-    grep -oE '"(Fajr|Sunrise|Dhuhr|Asr|Maghrib|Isha)":"[0-9]{2}:[0-9]{2}|"hijri":\{"date":"[0-9-]+' "$DIR/prayer.json" \
-        | sed 's/"hijri":{"date":"/hijri,/; s/"//g; s/:/,/' > "$DIR/prayer.new"
+    grep -oE '"(Fajr|Sunrise|Dhuhr|Asr|Maghrib|Isha)":"[0-9]{2}:[0-9]{2}' "$DIR/prayer.json" | sed 's/"//g; s/:/,/' > "$DIR/prayer.new"
     [ "$(grep -c , "$DIR/prayer.new")" -ge 6 ] || { echo "$(date) prayer times: unexpected reply"; return; }
     { echo "day,$1"; cat "$DIR/prayer.new"; } > "$DIR/prayer.txt"
 }

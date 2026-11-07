@@ -58,7 +58,7 @@ expect "$week" "R|434|131|56|6|B"          # today 2-9 within the 10 days' 2-12
 [ "$(printf '%s\n' "$week" | grep -c '^I|dots-')" = 10 ] || { echo "10d tab should have 10 rows"; fail=1; }
 case "$week" in *Tomorrow*) echo "10d tab drew the Today view"; fail=1 ;; esac
 pray=$(mktemp)
-printf 'day,2026-11-04\nFajr,05:01\nSunrise,06:47\nDhuhr,11:38\nAsr,14:05\nMaghrib,16:28\nIsha,18:09\nhijri,26-05-1448\n' > "$pray"
+printf 'day,2026-11-04\nFajr,05:01\nSunrise,06:47\nDhuhr,11:38\nAsr,14:05\nMaghrib,16:28\nIsha,18:09\n' > "$pray"
 card=$(fixture | awk -v place=Vienna -v batt=87 -v utc=1530 -v card=1 -f render.awk - "$pray")  # 16:30 local
 late=$(fixture | awk -v place=Vienna -v batt=87 -v utc=1530 -v clock=2130 -v card=1 -f render.awk - "$pray")  # fetched 16:30, now 22:30
 old=$(fixture | sed 's/^2026-11-04T20:45/2026-11-05T20:45/' | awk -v place=Vienna -v utc=1530 -v card=1 -f render.awk - "$pray")
@@ -66,14 +66,15 @@ rm -f "$pray"
 expect "$card" "|cg|Fajr"
 expect "$card" "|cg|05:01"                 # past prayers in grey
 expect "$card" "|cg|16:28"                 # Maghrib is just past at 16:30
-expect "$card" "|g|26 Jumada I 1448"
-expect "$card" "R|400|664|169|88|B"        # next prayer (Isha) inverted
+expect "$card" "T|B|24|20|20|520|c|Prayer times"  # centred over the grid
+expect "$card" "|cg|Wednesday 4 November 2026"   # Gregorian date of the times
+expect "$card" "R|400|672|169|86|B"        # next prayer (Isha) inverted
 expect "$card" "|ci|18:09"
 expect "$late" "|cg|18:09"
 case "$late" in *"|ci|"*) echo "nothing should be highlighted after Isha"; fail=1 ;; esac
-expect "$old" "|g|for 2026-11-04"
+expect "$old" "|cg|Wednesday 4 November 2026"   # older times say which day they are for
 case "$old" in *"|ci|"*) echo "another day's times must not be highlighted"; fail=1 ;; esac
-case "$card" in *November*) echo "prayer card also drew the date"; fail=1 ;; esac
+case "$card" in *"||November"*) echo "prayer card also drew the date card"; fail=1 ;; esac
 expect "$(fixture | render -v utc=1530 -v card=1)" "Not loaded yet"
 empty=$(printf '' | render)
 expect "$empty" "||Vienna"                 # the place name is the way Home

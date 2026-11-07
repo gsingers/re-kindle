@@ -54,7 +54,7 @@ function hm(t) { return substr(t, 12, 5) }  # "2026-11-07T06:58" -> "06:58"
 
 BEGIN { FS = ","; sec = 0; nh = 0; nd = 0; offset = 0 }  # counters must start numeric: an unset one indexes as ""
 { sub(/\r$/, "") }
-NR != FNR { pr[$1] = $2; next }  # second file, prayer.txt: day,YYYY-MM-DD / hijri,DD-MM-YYYY / Fajr,HH:MM ...
+NR != FNR { pr[$1] = $2; next }  # second file, prayer.txt: day,YYYY-MM-DD / Fajr,HH:MM ...
 /^$/ { sec++; next }
 $1 == "time" || $1 == "latitude" { next }
 sec == 0 { offset = $4 }
@@ -196,24 +196,22 @@ END {
 }
 
 # Today's prayers in a 3 x 2 grid: the next one inverted, the ones already past in grey.
-function prayer_card(today, now_m,   names, hd, k, c, r, x, y, nexti, f, g, live) {
-    text("B", 24, 20, 300, 530, "", "Prayer times")
-    if (pr["Fajr"] == "") { text("R", 22, 40, 40, 630, "cg", "Not loaded yet, needs Wi-Fi"); return }
+# Title and the times' date are centred over the grid, like its columns.
+function prayer_card(today, now_m,   names, py, pm, pd, k, c, r, x, y, nexti, f, g, live) {
+    text("B", 24, 20, 20, 520, "c", "Prayer times")
+    if (pr["Fajr"] == "") { text("R", 22, 20, 20, 630, "cg", "Not loaded yet, needs Wi-Fi"); return }
     live = pr["day"] == today
-    if (!live) text("R", 20, 212, 20, 534, "g", "for " pr["day"])
-    else if (split(pr["hijri"], hd, "-") == 3) {
-        split("Muharram,Safar,Rabi I,Rabi II,Jumada I,Jumada II,Rajab,Shaban,Ramadan,Shawwal,Dhul Qadah,Dhul Hijjah", names, ",")
-        text("R", 20, 212, 20, 534, "g", (hd[1] + 0) " " names[hd[2] + 0] " " hd[3])
-    }
+    py = substr(pr["day"], 1, 4) + 0; pm = substr(pr["day"], 6, 2) + 0; pd = substr(pr["day"], 9, 2) + 0
+    text("R", 18, 20, 20, 550, "cg", dayname[weekday(py, pm, pd) + 1] " " pd " " monname[pm] " " py)
     split("Fajr Sunrise Dhuhr Asr Maghrib Isha", names, " ")
     nexti = 7  # first prayer still ahead today (Sunrise isn't a prayer); 7 = all past
     for (k = 6; k >= 1; k--) if (k != 2 && pr[names[k]] != "" && substr(pr[names[k]], 1, 2) * 60 + substr(pr[names[k]], 4, 2) > now_m) nexti = k
     for (k = 1; k <= 6; k++) {
         c = (k - 1) % 3; r = int((k - 1) / 3)
-        x = 22 + 185 * c; y = 570 + 94 * r; f = "c"; g = "cg"
-        if (live && k == nexti) { box(x + 8, y, 169, 88, "B"); f = g = "ci" }
+        x = 22 + 185 * c; y = 580 + 92 * r; f = "c"; g = "cg"
+        if (live && k == nexti) { box(x + 8, y, 169, 86, "B"); f = g = "ci" }
         else if (live && k < nexti) f = "cg"
         text("R", 22, x, 600 - x - 185, y + 8, g, names[k])
-        text("B", 40, x, 600 - x - 185, y + 34, f, pr[names[k]] == "" ? "-" : pr[names[k]])
+        text("B", 40, x, 600 - x - 185, y + 32, f, pr[names[k]] == "" ? "-" : pr[names[k]])
     }
 }
