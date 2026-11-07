@@ -19,8 +19,8 @@ WIFI_WAIT=60                # longest wait for Wi-Fi to bring data after turning
 SLEEP=1                     # 1 = suspend between refreshes, 0 = stay awake (Wi-Fi still goes off)
 TOUCH=/dev/input/event1     # touchscreen device
 HOME_ZONE="220 52"          # touching the place name (left of x=220, above y=52) goes Home
-TABS_BOTTOM=110             # touches from y=52 to here pick a tab: x < 190 Today, 190-360 10 days
-CARD_TOP=526                # on Today, touches below this y switch the bottom card (date / prayer times)
+TABS_BOTTOM=110             # touches from y=52 to here pick a tab: left half Today, right half 10 days
+CARD_TOP=512                # on Today, touches below this y switch the bottom card (date / prayer times)
 CARDS=2                     # number of bottom cards (see render.awk)
 PRAYER_METHOD=3             # aladhan.com calculation method: 3 = Muslim World League, 13 = Diyanet,
                             # 2 = ISNA, 4 = Umm al-Qura (full list: aladhan.com/calculation-methods)
@@ -32,7 +32,7 @@ POWER_STATE=${POWER_STATE:-/sys/power/state}
 RTC=${RTC:-/sys/class/rtc}
 FBINK="$DIR/bin/fbink"
 # Plain http on purpose: the Kindle's old TLS stack may not manage modern https.
-URL="http://api.open-meteo.com/v1/forecast?latitude=$LAT&longitude=$LON&timezone=$TIMEZONE&forecast_days=10&format=csv&current=temperature_2m,weather_code,relative_humidity_2m,is_day&hourly=temperature_2m,weather_code,precipitation_probability,is_day&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,precipitation_sum"
+URL="http://api.open-meteo.com/v1/forecast?latitude=$LAT&longitude=$LON&timezone=$TIMEZONE&forecast_days=10&format=csv&current=temperature_2m,weather_code,relative_humidity_2m,is_day,apparent_temperature,wind_speed_10m&hourly=temperature_2m,weather_code,precipitation_probability,is_day&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,precipitation_sum,sunrise,sunset"
 
 fetch() {
     curl -s -f -m 15 -o "$1" "$URL" 2>/dev/null || wget -q -T 15 -O "$1" "$URL"
@@ -62,7 +62,7 @@ draw_fbink() {
     "$FBINK" -q -b -k
     while IFS='|' read -r kind a b c d e f text; do
         case "$kind" in
-        R)  if [ "$e" = B ]; then bg=BLACK; else bg=WHITE; fi
+        R)  case "$e" in B) bg=BLACK ;; W) bg=WHITE ;; *) bg=$e ;; esac
             "$FBINK" -q -b -B "$bg" -k "top=$b,left=$a,width=$c,height=$d" ;;
         # This FBInk build has no image support, so icons go through the Kindle's own eips.
         I)  eips -g "$DIR/icons/$a.png" -x "$b" -y "$c" >/dev/null ;;
@@ -70,6 +70,7 @@ draw_fbink() {
             set -- -q -b -O
             case "$f" in *c*) set -- "$@" -m ;; esac
             case "$f" in *i*) set -- "$@" -h ;; esac
+            case "$f" in *g*) set -- "$@" -C GRAY7 ;; esac
             "$FBINK" "$@" -t "regular=$font,px=$b,top=$e,left=$c,right=$d" -- "$text" ;;
         esac
     done
@@ -78,11 +79,11 @@ draw_fbink() {
     "$FBINK" -q -f -s -w
 }
 
-draw_eips() {  # fallback when FBInk can't run: plain text, Home row near the bottom
+draw_eips() {  # fallback when FBInk can't run: plain text
     eips -c
     eips 1 2 "FBInk failed: see dashboard/log.txt" >/dev/null
     eips 1 4 "$(sed -n 5p "$DIR/weather.csv" 2>/dev/null | cut -d, -f1,2)" >/dev/null
-    eips 1 23 "[ Tap here for the Kindle Home ]" >/dev/null
+    eips 1 23 "Tap the top-left corner for the Kindle Home" >/dev/null
 }
 
 # Reads raw touch events (16 bytes each on this 32-bit Kindle). Fields after od:
@@ -107,7 +108,7 @@ watch_touch() {
             fi
             t=-
             if [ "$y" -ge "$2" ] && [ "$y" -lt "$TABS_BOTTOM" ] && [ "$x" -ge 0 ]; then
-                if [ "$x" -lt 190 ]; then t=today; elif [ "$x" -lt 360 ]; then t=10d; fi
+                if [ "$x" -lt 300 ]; then t=today; else t=10d; fi
                 echo "$(date) tab tap (x=$x y=$y) -> $t"
             elif [ "$y" -ge "$CARD_TOP" ]; then
                 # A card tap toggles, and one tap sends several reports: act once per 2 s.
