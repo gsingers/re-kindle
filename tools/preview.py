@@ -27,7 +27,7 @@ for line in sys.stdin.read().splitlines():
         centred = "c" in flags
         x = (left + 600 - right) / 2 if centred else left
         parts.append(f'<text x="{x}" y="{top + 0.8 * px}" font-size="{px}" font-weight="{"bold" if style == "B" else "normal"}"'
-                     f' text-anchor="{"middle" if centred else "start"}" fill="{"#fff" if "i" in flags else "#777" if "g" in flags else "#000"}">{html.escape(text)}</text>')
+                     f' text-anchor="{"middle" if centred else "start"}" fill="{"#fff" if "i" in flags else "#000"}">{html.escape(text)}</text>')
 print('<!doctype html><meta charset="utf-8"><title>Dashboard preview</title>'
       '<body style="margin:0;background:#888"><svg xmlns="http://www.w3.org/2000/svg" width="600" height="800"'
       ' style="background:#fff;font-family:Helvetica,Arial,sans-serif;display:block">' + "".join(parts) + "</svg></body>")
