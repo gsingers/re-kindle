@@ -49,4 +49,4 @@ Changes only take effect after the user ejects and runs Stop then Start in KUAL.
 - The Kindle's clock is UTC; the local date comes from line 5 of `weather.csv` (`cut -c1-10`).
 - Prayer times use verified https only (`curl -f`); don't add `-k`. Open-Meteo is fetched over plain http on purpose.
 - The loop writes no log file (`start.sh` sends output to `/dev/null`); redirect it to a file there to debug on the device.
-- Git is local only (branch `main`, no remote).
+- Git: branch `main`; `origin` is the fork `gsingers/re-kindle`, `upstream` is the original `abdenourgnx/re-kindle`.
