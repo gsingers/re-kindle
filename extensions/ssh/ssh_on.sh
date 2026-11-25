@@ -27,11 +27,22 @@ done
 
 # Earlier USB-network versions switched USB away from drive mode: keep it a drive.
 [ "$(lipc-get-prop com.lab126.volumd useUsbForNetwork 2>/dev/null)" = 1 ] && lipc-set-prop com.lab126.volumd useUsbForNetwork 0
-say "Turning on Wi-Fi"
-lipc-set-prop com.lab126.cmd wirelessEnable 1 >> "$LOG" 2>&1
-say "Waiting for an address (60 s)"
+# Settings can say "Connected" while wifid is idle (cmState PENDING, wlan0 without carrier):
+# the Kindle drops Wi-Fi to save power and reconnects only when asked. Ask; if that doesn't
+# bring an address, cycle Wi-Fi off and on, which is what the dashboard does every refresh.
 wip() { ifconfig wlan0 2>/dev/null | sed -n 's/.*inet addr:\([0-9.]*\).*/\1/p'; }
-i=0; until [ -n "$(wip)" ] || [ $i -ge 60 ]; do sleep 1; i=$((i + 1)); done
+waitip() { i=0; until [ -n "$(wip)" ] || [ $i -ge "$1" ]; do sleep 1; i=$((i + 1)); done; }
+say "Connecting Wi-Fi"
+lipc-set-prop com.lab126.cmd wirelessEnable 1 >> "$LOG" 2>&1
+lipc-set-prop com.lab126.cmd ensureConnection wifi >> "$LOG" 2>&1
+waitip 20
+if [ -z "$(wip)" ]; then
+    say "Restarting Wi-Fi (60 s)"
+    lipc-set-prop com.lab126.cmd wirelessEnable 0 >> "$LOG" 2>&1; sleep 3
+    lipc-set-prop com.lab126.cmd wirelessEnable 1 >> "$LOG" 2>&1
+    waitip 60
+fi
+echo "wifid cmState: $(lipc-get-prop com.lab126.wifid cmState 2>&1)" >> "$LOG"
 IP=$(wip)
 [ -n "$IP" ] || {
     msg "SSH: no Wi-Fi address. Airplane mode?"
