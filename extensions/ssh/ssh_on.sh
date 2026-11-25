@@ -54,12 +54,19 @@ IP=$(wip)
 lipc-set-prop com.lab126.powerd preventScreenSaver 1 >> "$LOG" 2>&1
 
 [ -f "$D/pid" ] && kill "$(cat "$D/pid")" 2>/dev/null
-# -p binds the Wi-Fi address only. No iptables on this kernel, so nothing filters port 22;
+# Port 22 on all interfaces: a Wi-Fi reconnect may bring a new address, and Wi-Fi is the only
+# live network (USB is a drive). No iptables on this kernel, so nothing filters port 22;
 # password logins are compiled out, so only the key in authorized_keys gets in.
 # Fully detached (new session, no shared output) so the launcher never waits on it.
 S=$(command -v setsid)
 $S "$D/dropbearmulti" dropbear -r "$D/dropbear_ed25519_host_key" -r "$D/dropbear_ecdsa_host_key" \
-    -D "$D" -p "$IP:22" -P "$D/pid" -s -g </dev/null >> "$LOG" 2>&1 || { msg "SSH: dropbear failed"; home; exit 1; }
+    -D "$D" -p 22 -P "$D/pid" -s -g </dev/null >> "$LOG" 2>&1 || { msg "SSH: dropbear failed"; home; exit 1; }
+# Keep Wi-Fi from going idle while dropbear runs (keepalive.sh), detached like dropbear.
+[ -f "$D/keepalive.pid" ] && kill "$(cat "$D/keepalive.pid")" 2>/dev/null
+cp -f "$SRC/keepalive.sh" "$D/keepalive.sh"
+nohup $S sh "$D/keepalive.sh" </dev/null >/dev/null 2>&1 &
+echo $! > "$D/keepalive.pid"
+echo "$(date) up: $IP, wifid $(lipc-get-prop com.lab126.wifid cmState 2>&1)" >> "$LOG"
 echo "$IP" > "$SRC/ip.txt"; sync  # flush: vfat writes are lost if USB takes the drive first
 msg "SSH on: root@$IP"
 say "Back to Home in a few seconds."

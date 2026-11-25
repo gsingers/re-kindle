@@ -7,6 +7,7 @@ LOG=$D/ssh.log
 echo "$(date) ssh off" >> "$LOG"
 echo "SSH: stopping"
 [ -f "$D/pid" ] && kill "$(cat "$D/pid")" 2>/dev/null; rm -f "$D/pid" "$SRC/ip.txt"
+[ -f "$D/keepalive.pid" ] && kill "$(cat "$D/keepalive.pid")" 2>/dev/null; rm -f "$D/keepalive.pid"
 lipc-set-prop com.lab126.powerd preventScreenSaver 0 >> "$LOG" 2>&1
 # Earlier USB-network versions switched USB away from drive mode: switch it back.
 [ "$(lipc-get-prop com.lab126.volumd useUsbForNetwork 2>/dev/null)" = 1 ] && lipc-set-prop com.lab126.volumd useUsbForNetwork 0
