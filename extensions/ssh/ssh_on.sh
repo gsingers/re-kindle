@@ -19,7 +19,12 @@ home() { cp -f "$LOG" "$SRC/ssh.log" 2>/dev/null; sync; sleep 6; lipc-set-prop c
 say "SSH: starting"
 [ -f "$SRC/authorized_keys" ] || { msg "SSH: unplug USB, then retry"; home; exit 1; }
 cp -f "$SRC/bin/dropbearmulti" "$D/dropbearmulti" && chmod 700 "$D/dropbearmulti" || { msg "SSH: copy failed"; home; exit 1; }
-cp -f "$SRC/authorized_keys" "$D/authorized_keys" && chmod 600 "$D/authorized_keys"
+# dropbear refuses authorized_keys under a group/other-writable directory, and /var/local is
+# framework:javauser 2775 (root's home, /tmp/root, is under world-writable /tmp). So it goes in
+# /var/dropbear: / and /var are root 755. /var is tmpfs, so it is copied again on every start.
+AK=/var/dropbear
+mkdir -p "$AK" && chown root:root "$AK" && chmod 700 "$AK"
+cp -f "$SRC/authorized_keys" "$AK/authorized_keys" && chown root:root "$AK/authorized_keys" && chmod 600 "$AK/authorized_keys"
 ln -sf "$D/dropbearmulti" "$D/scp"  # first on the session PATH, for scp -O from the Mac
 for t in ed25519 ecdsa; do
     [ -f "$D/dropbear_${t}_host_key" ] || { say "Making $t host key"; "$D/dropbearmulti" dropbearkey -t "$t" -f "$D/dropbear_${t}_host_key" >> "$LOG" 2>&1; }
@@ -67,7 +72,7 @@ lipc-set-prop com.lab126.powerd preventScreenSaver 1 >> "$LOG" 2>&1
 # Fully detached (new session, no shared output) so the launcher never waits on it.
 S=$(command -v setsid)
 $S "$D/dropbearmulti" dropbear -r "$D/dropbear_ed25519_host_key" -r "$D/dropbear_ecdsa_host_key" \
-    -D "$D" -p 22 -P "$D/pid" -s -g </dev/null >> "$LOG" 2>&1 || { msg "SSH: dropbear failed"; home; exit 1; }
+    -D "$AK" -p 22 -P "$D/pid" -s -g </dev/null >> "$LOG" 2>&1 || { msg "SSH: dropbear failed"; home; exit 1; }
 # Keep Wi-Fi from going idle while dropbear runs (keepalive.sh), detached like dropbear.
 [ -f "$D/keepalive.pid" ] && kill "$(cat "$D/keepalive.pid")" 2>/dev/null
 cp -f "$SRC/keepalive.sh" "$D/keepalive.sh"

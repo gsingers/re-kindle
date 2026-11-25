@@ -11,6 +11,13 @@ echo "SSH: stopping"
 lipc-set-prop com.lab126.powerd preventScreenSaver 0 >> "$LOG" 2>&1
 # Earlier USB-network versions switched USB away from drive mode: switch it back.
 [ "$(lipc-get-prop com.lab126.volumd useUsbForNetwork 2>/dev/null)" = 1 ] && lipc-set-prop com.lab126.volumd useUsbForNetwork 0
+{ echo "--- key path permissions (dropbear rejects group/other-writable dirs)"
+  ls -ld / /var /var/local "$D" "$D/authorized_keys"
+  echo "--- root in /etc/passwd: $(grep '^root:' /etc/passwd)"
+  echo "--- authorized_keys: $(wc -c < "$D/authorized_keys") bytes, $(cut -c1-30 "$D/authorized_keys")"
+  echo "--- dropbear in the system log"
+  for f in /var/log/messages /var/log/messages.0; do [ -f "$f" ] && grep -i dropbear "$f" | tail -15; done
+  logread 2>/dev/null | grep -i dropbear | tail -15; } >> "$LOG" 2>&1
 cp -f "$LOG" "$SRC/ssh.log" 2>/dev/null; sync
 echo "SSH off. Back to Home in a few seconds."
 sleep 4; lipc-set-prop com.lab126.appmgrd start app://com.lab126.booklet.home
