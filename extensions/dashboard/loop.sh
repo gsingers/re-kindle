@@ -21,7 +21,7 @@ IDLE=20                     # seconds after the last touch (or a power-button wa
 WIFI_WAIT=60                # longest wait for Wi-Fi to bring data after turning it on; the fetch
                             # happens as soon as it works
 SLEEP=1                     # 1 = suspend between refreshes, 0 = stay awake (Wi-Fi still goes off)
-TOUCH=/dev/input/event1     # touchscreen device
+TOUCH=/dev/input/event0     # touchscreen device (zforce2 on the KT3; event1 on the KT2)
 HOME_ZONE="220 52"          # touching the place name (left of x=220, above y=52) goes Home
 TABS_BOTTOM=98              # touches from y=52 to here pick a tab: left half Today, right half 10 days
 CARD_TOP=506                # on Today, touches below this y switch the bottom card
@@ -34,8 +34,8 @@ DIR=${DASH_DIR:-/mnt/us/extensions/dashboard}  # overridable for a Mac rehearsal
 POWER_STATE=${POWER_STATE:-/sys/power/state}
 RTC=${RTC:-/sys/class/rtc}
 FBINK="$DIR/bin/fbink"
-# Plain http on purpose: the Kindle's old TLS stack may not manage modern https.
-URL="http://api.open-meteo.com/v1/forecast?latitude=$LAT&longitude=$LON&timezone=$TIMEZONE&forecast_days=10&format=csv&temperature_unit=fahrenheit&wind_speed_unit=mph&precipitation_unit=inch&current=temperature_2m,weather_code,relative_humidity_2m,is_day,apparent_temperature,wind_speed_10m&hourly=temperature_2m,weather_code,precipitation_probability,is_day&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,precipitation_sum,sunrise,sunset"
+# https: probe.sh showed this firmware's curl (OpenSSL 1.0.2q) fetches Open-Meteo over https.
+URL="https://api.open-meteo.com/v1/forecast?latitude=$LAT&longitude=$LON&timezone=$TIMEZONE&forecast_days=10&format=csv&temperature_unit=fahrenheit&wind_speed_unit=mph&precipitation_unit=inch&current=temperature_2m,weather_code,relative_humidity_2m,is_day,apparent_temperature,wind_speed_10m&hourly=temperature_2m,weather_code,precipitation_probability,is_day&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,precipitation_sum,sunrise,sunset"
 
 fetch() {
     curl -s -f -m 15 -o "$1" "$URL" 2>/dev/null || wget -q -T 15 -O "$1" "$URL"

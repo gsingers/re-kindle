@@ -3,7 +3,7 @@
 # 12 seconds of raw touch events while the Kindle UI is paused (the Home-bar test).
 DIR=/mnt/us/extensions/dashboard
 URL="api.open-meteo.com/v1/forecast?latitude=35.23&longitude=-80.84&current=temperature_2m&format=csv"
-eips 0 38 "Probe running (about 30 s). Don't tap yet."
+eips 0 30 "Probe running (30 s). Wait..."
 {
     echo "--- time"; date; date -u
     echo "--- system"; uname -a; id; cat /etc/prettyversion.txt 2>/dev/null
@@ -34,7 +34,7 @@ eips -c
 eips 0 10 "TOUCH TEST (12 seconds)"
 eips 0 12 "1. Tap the TOP-LEFT corner"
 eips 0 13 "2. Tap the BOTTOM-RIGHT corner"
-eips 0 14 "3. Tap the middle of the BOTTOM edge"
+eips 0 14 "3. Tap the BOTTOM edge middle"
 pids=""
 for e in /dev/input/event*; do
     cat "$e" > "$DIR/touch-${e##*/}.bin" &
@@ -47,4 +47,4 @@ killall -CONT cvm >> "$DIR/probe.txt" 2>&1
 ls -l "$DIR"/touch-*.bin >> "$DIR/probe.txt" 2>&1
 lipc-set-prop com.lab126.appmgrd start app://com.lab126.booklet.home
 sleep 3
-eips 0 38 "Probe done. Plug the Kindle into the Mac."
+eips 0 30 "Probe done. Plug into the Mac."

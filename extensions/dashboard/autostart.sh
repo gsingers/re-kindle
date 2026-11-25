@@ -8,10 +8,10 @@ if [ "$1" = on ]; then
         mntroot ro
     fi
     touch "$DIR/autostart"
-    msg="Autostart on: dashboard starts 90 s after each boot."
+    msg="Autostart on: 90 s after boot."
 else
     rm -f "$DIR/autostart"
     msg="Autostart off."
 fi
-[ "$1" = on ] && [ ! -f /etc/upstart/dashboard.conf ] && msg="Autostart FAILED: could not install the boot job."
-eips 0 38 "$msg"
+[ "$1" = on ] && [ ! -f /etc/upstart/dashboard.conf ] && msg="Autostart FAILED: no boot job."
+eips 0 30 "$msg"
