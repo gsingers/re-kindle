@@ -14,7 +14,7 @@ echo "$(date) ssh on" >> "$LOG"
 say() { echo "$1"; echo "$1" >> "$LOG"; }  # on screen and in the log
 msg() { say "$1"; }
 # Leaves the launcher screen: copy the log for the Mac, then show Home after a pause to read.
-home() { cp -f "$LOG" "$SRC/ssh.log" 2>/dev/null; sleep 6; lipc-set-prop com.lab126.appmgrd start app://com.lab126.booklet.home; }
+home() { cp -f "$LOG" "$SRC/ssh.log" 2>/dev/null; sync; sleep 6; lipc-set-prop com.lab126.appmgrd start app://com.lab126.booklet.home; }
 
 say "SSH: starting"
 [ -f "$SRC/authorized_keys" ] || { msg "SSH: unplug USB, then retry"; home; exit 1; }
@@ -33,7 +33,12 @@ say "Waiting for an address (60 s)"
 wip() { ifconfig wlan0 2>/dev/null | sed -n 's/.*inet addr:\([0-9.]*\).*/\1/p'; }
 i=0; until [ -n "$(wip)" ] || [ $i -ge 60 ]; do sleep 1; i=$((i + 1)); done
 IP=$(wip)
-[ -n "$IP" ] || { msg "SSH: no Wi-Fi address. Airplane mode?"; home; exit 1; }
+[ -n "$IP" ] || {
+    msg "SSH: no Wi-Fi address. Airplane mode?"
+    { echo "--- wifid cmState: $(lipc-get-prop com.lab126.wifid cmState 2>&1)"
+      echo "--- /sys/class/net: $(ls /sys/class/net)"; echo "--- ifconfig -a"; ifconfig -a
+      echo "--- ip addr"; ip addr 2>&1; echo "--- route"; route -n; echo "--- PATH=$PATH"; } >> "$LOG" 2>&1
+    home; exit 1; }
 # Stay awake while SSH is on: a suspended Kindle drops the connection. ssh_off.sh undoes it.
 lipc-set-prop com.lab126.powerd preventScreenSaver 1 >> "$LOG" 2>&1
 
@@ -44,7 +49,7 @@ lipc-set-prop com.lab126.powerd preventScreenSaver 1 >> "$LOG" 2>&1
 S=$(command -v setsid)
 $S "$D/dropbearmulti" dropbear -r "$D/dropbear_ed25519_host_key" -r "$D/dropbear_ecdsa_host_key" \
     -D "$D" -p "$IP:22" -P "$D/pid" -s -g </dev/null >> "$LOG" 2>&1 || { msg "SSH: dropbear failed"; home; exit 1; }
-echo "$IP" > "$SRC/ip.txt"
+echo "$IP" > "$SRC/ip.txt"; sync  # flush: vfat writes are lost if USB takes the drive first
 msg "SSH on: root@$IP"
 say "Back to Home in a few seconds."
 home

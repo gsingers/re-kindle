@@ -10,6 +10,6 @@ echo "SSH: stopping"
 lipc-set-prop com.lab126.powerd preventScreenSaver 0 >> "$LOG" 2>&1
 # Earlier USB-network versions switched USB away from drive mode: switch it back.
 [ "$(lipc-get-prop com.lab126.volumd useUsbForNetwork 2>/dev/null)" = 1 ] && lipc-set-prop com.lab126.volumd useUsbForNetwork 0
-cp -f "$LOG" "$SRC/ssh.log" 2>/dev/null
+cp -f "$LOG" "$SRC/ssh.log" 2>/dev/null; sync
 echo "SSH off. Back to Home in a few seconds."
 sleep 4; lipc-set-prop com.lab126.appmgrd start app://com.lab126.booklet.home
