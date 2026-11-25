@@ -20,3 +20,10 @@ extensions/dashboard/prayer.json
 extensions/dashboard/prayer.new
 screen.new
 screen.key
+# SSH: the Mac-side public key is copied in at deploy time; logs are written on the device
+extensions/ssh/authorized_keys
+extensions/ssh/ssh.log
+tools/dropbear/src/
+tools/dropbear/out/
+tools/dropbear/e2e/
+tools/dropbear/gnupg/

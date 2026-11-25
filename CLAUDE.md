@@ -44,6 +44,10 @@ Scriptlets go to `/Volumes/Kindle/documents/`. Changes only take effect after th
 - **FBInk v1.25** in `bin/` has no image support: icons are drawn with the Kindle's `eips -g`. It can't right-align or measure text, so widths are estimated in awk (`rtext()`, the big-temperature width heuristic). Overflowing text wraps onto a second line rather than clipping.
 - **`tools/preview.py`** mirrors the protocol as SVG with Helvetica (the device uses Amazon Ember), so spacing on the device differs slightly.
 
+## SSH (`extensions/ssh/`)
+
+Library scriptlets **SSH On (USB)** / **SSH Off (USB)** run `ssh_on.sh` / `ssh_off.sh`: switch USB to networking (`lipc-set-prop com.lab126.volumd useUsbForNetwork 1`), put the Kindle at `192.168.15.244` (the Mac takes `192.168.15.201` on the new interface), and run `bin/dropbearmulti` bound to that address only, keys only. Everything runs from `/var/local/ssh` (ext3, persistent): `/mnt/us` is vfat and fails dropbear's permission checks. The Mac key is `~/.ssh/kindle_ed25519`; its `.pub` is copied to `extensions/ssh/authorized_keys` at deploy time (gitignored). Connect with `ssh -i ~/.ssh/kindle_ed25519 root@192.168.15.244`; copy with `scp -O` (no sftp-server). While SSH is on, the Kindle is not a USB drive; logs go to `extensions/ssh/ssh.log`. `dropbearmulti` is a static musl build of dropbear 2026.94: rebuild with `sh tools/dropbear/build.sh` (Docker, QEMU arm/v7; see `tools/dropbear/BUILD.md`).
+
 ## Constraints that have bitten before
 
 - The device awk is **busybox awk**. Never join a variable and a parenthesised expression as `name (expr)`: busybox parses it as a call to function `name` and aborts the render mid-screen. Start with the paren or use a temp variable. Mac awk accepts both, so `check.sh` won't catch this.
