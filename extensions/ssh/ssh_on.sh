@@ -30,21 +30,24 @@ done
 # Settings can say "Connected" while wifid is idle (cmState PENDING, wlan0 without carrier):
 # the Kindle drops Wi-Fi to save power and reconnects only when asked. Ask; if that doesn't
 # bring an address, cycle Wi-Fi off and on, which is what the dashboard does every refresh.
+# wlan0 can keep its old address while wifid is still PENDING, so "online" means wifid
+# says CONNECTED and wlan0 has an address.
 wip() { ifconfig wlan0 2>/dev/null | sed -n 's/.*inet addr:\([0-9.]*\).*/\1/p'; }
-waitip() { i=0; until [ -n "$(wip)" ] || [ $i -ge "$1" ]; do sleep 1; i=$((i + 1)); done; }
+up() { [ "$(lipc-get-prop com.lab126.wifid cmState 2>/dev/null)" = CONNECTED ] && [ -n "$(wip)" ]; }
+waitup() { i=0; until up || [ $i -ge "$1" ]; do sleep 1; i=$((i + 1)); done; }
 say "Connecting Wi-Fi"
 lipc-set-prop com.lab126.cmd wirelessEnable 1 >> "$LOG" 2>&1
 lipc-set-prop com.lab126.cmd ensureConnection wifi >> "$LOG" 2>&1
-waitip 20
-if [ -z "$(wip)" ]; then
-    say "Restarting Wi-Fi (60 s)"
+waitup 20
+if ! up; then
+    say "Restarting Wi-Fi (90 s)"
     lipc-set-prop com.lab126.cmd wirelessEnable 0 >> "$LOG" 2>&1; sleep 3
     lipc-set-prop com.lab126.cmd wirelessEnable 1 >> "$LOG" 2>&1
-    waitip 60
+    waitup 90
 fi
 echo "wifid cmState: $(lipc-get-prop com.lab126.wifid cmState 2>&1)" >> "$LOG"
 IP=$(wip)
-[ -n "$IP" ] || {
+up || {
     msg "SSH: no Wi-Fi address. Airplane mode?"
     { echo "--- wifid cmState: $(lipc-get-prop com.lab126.wifid cmState 2>&1)"
       echo "--- /sys/class/net: $(ls /sys/class/net)"; echo "--- ifconfig -a"; ifconfig -a
