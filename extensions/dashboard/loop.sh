@@ -192,7 +192,7 @@ suspend_until() {
 
 # One loop does all the drawing, so the touch watcher never draws over it.
 # Awake, it checks for taps every second; once idle on Today it sleeps until the next refresh.
-tab=today; card=0; touched=$(date +%s); due=0; stale=0; good_utc=""; fails=0
+tab=today; card=0; touched=$(date +%s); due=0; stale=0; good_utc=""; fails=0; first=1
 rm -f "$DIR/tap" "$DIR/screen.key"  # no screen.key: the first draw always happens
 # Keep powerd from blanking the screen or suspending on its own timer while we are awake.
 lipc-set-prop com.lab126.powerd preventScreenSaver 1
@@ -225,6 +225,9 @@ while :; do
             $draw < "$DIR/screen.new"
             printf '%s\n' "$key" > "$DIR/screen.key"
             echo "$(date) drew $tab in $(($(date +%s) - t0)) s"
+            # The first fetch (Wi-Fi on, then data) can outlast IDLE: count the idle time from
+            # when the first screen appears, so there are IDLE seconds to tap before sleeping.
+            [ -n "$first" ] && { touched=$(date +%s); first=""; }
         fi
     fi
     if [ "$SLEEP" = 1 ] && [ "$tab" = today ] && [ $(($(date +%s) - touched)) -ge "$IDLE" ]; then
