@@ -46,6 +46,10 @@ if ! up; then
     waitup 90
 fi
 echo "wifid cmState: $(lipc-get-prop com.lab126.wifid cmState 2>&1)" >> "$LOG"
+# Incoming connections get lost while the radio power-saves: turn that off, say who we are.
+{ echo "tools: iwconfig=$(command -v iwconfig) wl=$(command -v wl) arping=$(command -v arping)"
+  iwconfig wlan0 power off; command -v wl >/dev/null && wl PM 0
+  iwconfig wlan0 2>&1 | grep -i power; } >> "$LOG" 2>&1
 IP=$(wip)
 up || {
     msg "SSH: no Wi-Fi address. Airplane mode?"
@@ -70,6 +74,7 @@ cp -f "$SRC/keepalive.sh" "$D/keepalive.sh"
 nohup $S sh "$D/keepalive.sh" </dev/null >/dev/null 2>&1 &
 echo $! > "$D/keepalive.pid"
 echo "$(date) up: $IP, wifid $(lipc-get-prop com.lab126.wifid cmState 2>&1)" >> "$LOG"
+command -v arping >/dev/null && arping -U -c 2 -I wlan0 "$IP" >> "$LOG" 2>&1  # announce our address
 echo "$IP" > "$SRC/ip.txt"; sync  # flush: vfat writes are lost if USB takes the drive first
 msg "SSH on: root@$IP"
 say "Back to Home in a few seconds."
