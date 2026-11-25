@@ -1,5 +1,5 @@
 #!/bin/sh
-# Name: SSH Off (USB)
+# Name: SSH Off (Wi-Fi)
 # Author: re-kindle
 # Copied to /mnt/us/documents, where the WinterBreak jailbreak lists .sh files as books.
 # In the background, detached: the launcher waits for every process a scriptlet starts,
