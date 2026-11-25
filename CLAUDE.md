@@ -4,7 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-A standalone e-ink weather dashboard for a jailbroken Kindle 7th gen (KT2, firmware 5.12.2.2, 600×800, busybox userland, clock in UTC). It runs on the Kindle as a KUAL extension (`extensions/dashboard/`), fetches Open-Meteo weather and aladhan.com prayer times over Wi-Fi, and draws with FBInk. `server.py` is an older, separate approach (serves an HTML page for the Kindle's browser) and is not part of the extension.
+A standalone e-ink weather dashboard for a jailbroken Kindle (600×800, busybox userland, clock in UTC). It lives in `extensions/dashboard/` on the Kindle, fetches Open-Meteo weather (Charlotte, NC; °F, mph, inches) over Wi-Fi, and draws with FBInk. Upstream wrote it for a 7th gen (KT2, firmware 5.12.2.2) with a prayer-times card; this fork targets the user's **8th gen (KT3, firmware 5.16.2.1.1, soft-float `kindlepw2`)** and has removed the prayer card.
+
+The KT3 is jailbroken with **WinterBreak2** (the modern "hdnext" stack: jb.sh/KMC, KPM). **KUAL does not work on that stack**: the dashboard is launched by scriptlets in `extensions/dashboard/scriptlets/`, copied to `/mnt/us/documents`, where `.sh` files show up as library books (`# Name:` sets the title). `menu.json`/`config.xml` are kept for KUAL devices. Don't upgrade the firmware: 5.16.3+ is hard-float (`kindlehf`) and the bundled FBInk is soft-float. `server.py` is an older, separate approach (serves an HTML page for the Kindle's browser) and is not part of the extension.
 
 ## Commands (Mac side)
 
@@ -32,13 +34,13 @@ cp -X f "$K/f.tmp" && mv -f "$K/f.tmp" "$K/f" && cmp f "$K/f"
 find /Volumes/Kindle/extensions -name '._*' -delete
 ```
 
-Changes only take effect after the user ejects and runs Stop then Start in KUAL. `render.awk` is re-read on every draw but `loop.sh` is not, so a new `render.awk` under an old running loop can render with mismatched tap zones and colours.
+Scriptlets go to `/Volumes/Kindle/documents/`. Changes only take effect after the user ejects and runs Dashboard Stop then Dashboard Start from the library. `render.awk` is re-read on every draw but `loop.sh` is not, so a new `render.awk` under an old running loop can render with mismatched tap zones and colours.
 
 ## Architecture
 
-- **`loop.sh`** is the only process that draws. It owns the schedule: Wi-Fi on → fetch → Wi-Fi off; render; suspend to RAM with an RTC wake alarm (`echo mem > /sys/power/state`). Knobs at the top (`INTERVAL`, `NIGHT`, `IDLE`, tap zones, `GREY`, `PRAYER_METHOD`). Battery savers: hourly refresh, no refreshes in the `NIGHT` hours, a redraw is skipped when the rendered commands equal `screen.key` (ignoring the "Updated" line), and Wi-Fi-free wakes at prayer times while the prayer card shows. Local time = device UTC + `utc_offset_seconds` from line 2 of `weather.csv`.
+- **`loop.sh`** is the only process that draws. It owns the schedule: Wi-Fi on → fetch → Wi-Fi off; render; suspend to RAM with an RTC wake alarm (`echo mem > /sys/power/state`). Knobs at the top (`INTERVAL`, `NIGHT`, `IDLE`, tap zones, `GREY`, `PRAYER_METHOD`). Battery savers: hourly refresh, no refreshes in the `NIGHT` hours, and a redraw is skipped when the rendered commands equal `screen.key` (ignoring the "Updated" line). Local time = device UTC + `utc_offset_seconds` from line 2 of `weather.csv`.
 - **Touch** is a background `watch_touch` reading raw evdev from `/dev/input/event1` (`dd | od -t d2`; coordinates are screen pixels). It never draws: it writes a request (`today`, `10d`, `card`) to `$DIR/tap`, which the main loop picks up with `mv tap tap.read`. Tapping the place name (top left) runs `stop.sh` = Home. The Kindle UI (`cvm`) is SIGSTOPped while the dashboard runs; `stop.sh` resumes it and undoes Wi-Fi/alarm/screensaver changes.
-- **`render.awk`** turns `weather.csv` (Open-Meteo CSV: meta, current, hourly, daily sections separated by blank lines, columns positional) plus `prayer.txt` (second input, detected with `NR != FNR`) into a line protocol, `T|style|px|left|right|top|flags|text`, `R|x|y|w|h|color`, `I|name|x|y`, which `loop.sh`'s `draw_fbink` executes. Text flags: `c` centred, `i` inverted, `g` secondary (`-C $GREY`). New API fields must be appended to the end of the URL's field lists so old CSVs keep their column positions.
+- **`render.awk`** turns `weather.csv` (Open-Meteo CSV: meta, current, hourly, daily sections separated by blank lines, columns positional) into a line protocol, `T|style|px|left|right|top|flags|text`, `R|x|y|w|h|color`, `I|name|x|y`, which `loop.sh`'s `draw_fbink` executes. Text flags: `c` centred, `i` inverted, `g` secondary (`-C $GREY`). New API fields must be appended to the end of the URL's field lists so old CSVs keep their column positions. The bottom card is a slot for future widgets: `CARDS` in `loop.sh` (now 1, the date card) and `card`/`cards` in `render.awk`; add a card as a new `card == N` branch, with its data fetched in `refresh()` and passed as an extra awk input (upstream's prayer card, in git history, is a full example).
 - **FBInk v1.25** in `bin/` has no image support: icons are drawn with the Kindle's `eips -g`. It can't right-align or measure text, so widths are estimated in awk (`rtext()`, the big-temperature width heuristic). Overflowing text wraps onto a second line rather than clipping.
 - **`tools/preview.py`** mirrors the protocol as SVG with Helvetica (the device uses Amazon Ember), so spacing on the device differs slightly.
 
@@ -47,6 +49,6 @@ Changes only take effect after the user ejects and runs Stop then Start in KUAL.
 - The device awk is **busybox awk**. Never join a variable and a parenthesised expression as `name (expr)`: busybox parses it as a call to function `name` and aborts the render mid-screen. Start with the paren or use a temp variable. Mac awk accepts both, so `check.sh` won't catch this.
 - awk counts the UTF-8 `°` as 2 bytes; width estimates count digits/`-` with `gsub` and add the degree sign once.
 - The Kindle's clock is UTC; the local date comes from line 5 of `weather.csv` (`cut -c1-10`).
-- Prayer times use verified https only (`curl -f`); don't add `-k`. Open-Meteo is fetched over plain http on purpose.
+- Open-Meteo is fetched over plain http on purpose (old TLS stack); `probe.sh` tests both, so switch to https if it works on the device. Never add `curl -k`.
 - The loop writes no log file (`start.sh` sends output to `/dev/null`); redirect it to a file there to debug on the device.
 - Git: branch `main`; `origin` is the fork `gsingers/re-kindle`, `upstream` is the original `abdenourgnx/re-kindle`.

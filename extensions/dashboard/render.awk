@@ -5,9 +5,10 @@
 #   I|name|x|y                             icons/<name>.png
 # Plain POSIX awk so busybox on the Kindle runs it. Never write `name (...)` to join a
 # variable and a bracketed expression: busybox reads it as a call to a function "name".
-# Vars: place, stale (1 = last fetch failed), utc (HHMM UTC of the last good fetch), clock (HHMM UTC now),
-#       tab ("today" or "10d"), batt (battery %, empty to hide), card (bottom card: 0 date, 1 prayer).
-# Input: weather.csv, then optionally prayer.txt (see loop.sh's fetch_prayer).
+# Vars: place, stale (1 = last fetch failed), utc (HHMM UTC of the last good fetch),
+#       tab ("today" or "10d"), batt (battery %, empty to hide), card (bottom card shown, 0 = date),
+#       cards (number of bottom cards; dots below the card only when there is more than one).
+# Input: weather.csv in US units (°F, mph, inches; see loop.sh's URL).
 
 function cond(c) {
     c = int(c)
@@ -68,7 +69,6 @@ BEGIN {
           ".667 .667 .722 .722 .667 .611 .778 .722 .278 .5 .667 .556 .833 .722 .778 .667 .778 .722 .667 .611 .722 .667 .944 .667 .667 .611", adv, " ")
 }  # counters must start numeric: an unset one indexes as ""
 { sub(/\r$/, "") }
-NR != FNR { pr[$1] = $2; next }  # second file, prayer.txt: day,YYYY-MM-DD / Fajr,HH:MM ...
 /^$/ { sec++; next }
 $1 == "time" || $1 == "latitude" { next }
 sec == 0 { offset = $4 }
@@ -97,9 +97,6 @@ END {
         mins = (int(utc / 100) * 60 + utc % 100 + int(offset / 60) + 1440) % 1440
         stamp = sprintf("%02d:%02d", int(mins / 60), mins % 60)
     } else stamp = substr(now, 12, 5)
-    ck = clock != "" ? clock : utc  # the prayer card needs the time now, not the time of the fetch
-    if (ck != "") nowm = (int(ck / 100) * 60 + ck % 100 + int(offset / 60) + 1440) % 1440
-    else nowm = substr(now, 12, 2) * 60 + substr(now, 15, 2)
     if (stale) text("B", 18, 330, 120, 19, "", "Offline · " stamp)
     else text("R", 18, 330, 120, 19, "g", "Updated " stamp)
     if (batt != "") {  # battery outline with a level bar, then the percentage (bold when low)
@@ -134,8 +131,8 @@ END {
             img(icon(dcode[i], 1) "-48", 124, r + 10)
             dots = int((drain[i] + 10) / 20); if (dots > 5) dots = 5
             img("dots-" dots, 184, r + 27)
-            if (dsum[i] == "" || dsum[i] < 0.05) rain = dots ? "0 mm" : "dry"  # "dry" beside filled dots reads as a contradiction
-            else rain = (dsum[i] < 0.5 ? "<1" : sprintf("%.0f", dsum[i])) " mm"
+            if (dsum[i] == "" || dsum[i] < 0.005) rain = dots ? "0 in" : "dry"  # "dry" beside filled dots reads as a contradiction
+            else rain = (dsum[i] < 0.05 ? "<0.1" : sprintf("%.1f", dsum[i])) " in"
             text("R", 18, 304, 228, r + 24, "g", rain)
             text("R", 26, 364, 172, r + 21, "c", deg(dmin[i]))
             text("R", 26, 520, 20, r + 21, "c", deg(dmax[i]))
@@ -174,7 +171,7 @@ END {
         text("R", 18, 360, 20, 112, "g", "Today")
         text("B", 32, 360, 20, 132, "", deg(dmax[ti]) " / " deg(dmin[ti]))
         text("R", 22, 360, 20, 174, "", cond(dcode[ti]))
-        w = wind == "" ? "" : " · " sprintf("%.0f", wind) " km/h"
+        w = wind == "" ? "" : " · " sprintf("%.0f", wind) " mph"
         text("R", 18, 360, 20, 204, "g", pct(drain[ti]) " rain" w)
         if (ti + 1 < nd) {
             box(360, 238, 220, 1, "GRAYA")
@@ -197,36 +194,15 @@ END {
         text("R", 18, x, r, 466, "cg", pct(hrain[i]))
     }
 
-    # Bottom card, switched by tapping it: 0 = date, 1 = prayer times. Dots show which.
+    # Bottom card, switched by tapping it (loop.sh's CARDS): 0 = date. Dots show which, if several.
     box(20, 506, 560, 1, "B")
-    if (card == 1) prayer_card(today, nowm)
-    else {
+    if (card + 0 == 0) {
         text("B", 180, 22, 340, 532, "c", d)
         text("R", 28, 270, 22, 560, "", dayname[weekday(y, m, d) + 1])
         text("B", 50, 270, 22, 598, "", monname[m])  # "September" is the widest; it must stay on one line
         text("R", 26, 272, 22, 664, "g", y)
         if (ti >= 0 && drise[ti] != "") text("R", 18, 272, 22, 710, "g", "Sunrise " hm(drise[ti]) " · Sunset " hm(dset[ti]))
     }
-    for (j = 0; j < 2; j++) if (j == card + 0) box(286 + 20 * j, 768, 8, 8, "B"); else frame(286 + 20 * j, 768, 8, 8, 2)
+    if (cards > 1) for (j = 0; j < cards; j++) if (j == card + 0) box(286 + 20 * j, 768, 8, 8, "B"); else frame(286 + 20 * j, 768, 8, 8, 2)
 }
 
-# Today's prayers in a 3 x 2 grid: the next one inverted, the ones already past in grey.
-# Title on the left, the times' date on the right.
-function prayer_card(today, now_m,   names, py, pm, pd, k, c, r, x, y, nexti, f, g, live) {
-    text("B", 24, 20, 300, 524, "", "Prayer times")
-    if (pr["Fajr"] == "") { text("R", 22, 20, 20, 630, "cg", "Not loaded yet, needs Wi-Fi"); return }
-    live = pr["day"] == today
-    py = substr(pr["day"], 1, 4) + 0; pm = substr(pr["day"], 6, 2) + 0; pd = substr(pr["day"], 9, 2) + 0
-    rtext(18, 580, 528, "g", dayname[weekday(py, pm, pd) + 1] " " pd " " monname[pm] " " py)
-    split("Fajr Sunrise Dhuhr Asr Maghrib Isha", names, " ")
-    nexti = 7  # first prayer still ahead today (Sunrise isn't a prayer); 7 = all past
-    for (k = 6; k >= 1; k--) if (k != 2 && pr[names[k]] != "" && substr(pr[names[k]], 1, 2) * 60 + substr(pr[names[k]], 4, 2) > now_m) nexti = k
-    for (k = 1; k <= 6; k++) {
-        c = (k - 1) % 3; r = int((k - 1) / 3)
-        x = 22 + 185 * c; y = 570 + 94 * r; f = "c"; g = "cg"
-        if (live && k == nexti) { box(x + 8, y, 169, 86, "B"); f = g = "ci" }
-        else if (live && k < nexti) f = "cg"
-        text("R", 22, x, 600 - x - 185, y + 8, g, names[k])
-        text("B", 40, x, 600 - x - 185, y + 32, f, pr[names[k]] == "" ? "-" : pr[names[k]])
-    }
-}

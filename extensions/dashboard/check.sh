@@ -3,12 +3,12 @@
 cd "$(dirname "$0")" || exit 1
 fixture() {
     printf 'latitude,longitude,elevation,utc_offset_seconds,timezone,timezone_abbreviation\r\n48.2,16.37,181.0,3600,Europe/Vienna,GMT+1\r\n\r\n'
-    printf 'time,temperature_2m (C),weather_code (wmo code),relative_humidity_2m (%%),is_day (),apparent_temperature (C),wind_speed_10m (km/h)\n2026-11-04T20:45,7.6,61,80,0,4.6,12.4\n\n'
+    printf 'time,temperature_2m (C),weather_code (wmo code),relative_humidity_2m (%%),is_day (),apparent_temperature (C),wind_speed_10m (mp/h)\n2026-11-04T20:45,7.6,61,80,0,4.6,12.4\n\n'
     printf 'time,temperature_2m (C),weather_code (wmo code),precipitation_probability (%%),is_day ()\n'
     awk 'BEGIN { for (h = 0; h < 48; h++) printf "2026-11-%02dT%02d:00,-3.6,999,,%d\n", 4 + int(h / 24), h % 24, (h % 24 >= 7 && h % 24 < 17) }'
-    printf '\ntime,weather_code (wmo code),temperature_2m_max (C),temperature_2m_min (C),precipitation_probability_max (%%),precipitation_sum (mm),sunrise (iso8601),sunset (iso8601)\n'
-    printf '2026-11-04,3,9.0,2.0,40,0.3,2026-11-04T06:45,2026-11-04T16:31\n2026-11-05,0,11.0,3.0,0,0.0,,\n'
-    awk 'BEGIN { for (d = 6; d <= 13; d++) printf "2026-11-%02d,63,12.0,5.0,37,16.2,,\n", d }'
+    printf '\ntime,weather_code (wmo code),temperature_2m_max (C),temperature_2m_min (C),precipitation_probability_max (%%),precipitation_sum (inch),sunrise (iso8601),sunset (iso8601)\n'
+    printf '2026-11-04,3,9.0,2.0,40,0.03,2026-11-04T06:45,2026-11-04T16:31\n2026-11-05,0,11.0,3.0,0,0.0,,\n'
+    awk 'BEGIN { for (d = 6; d <= 13; d++) printf "2026-11-%02d,63,12.0,5.0,37,0.64,,\n", d }'
 }
 render() { awk -v place=Vienna -v batt=87 "$@" -f render.awk; }
 out=$(fixture | render -v stale=0 -v utc=1952)
@@ -26,7 +26,7 @@ expect "$out" "I|rain-160|43|104"          # current code 61
 expect "$out" "|cg|Feels like 5° · Humidity 80%"
 expect "$(fixture | sed "s/T20:45,7.6/T20:45,-12.3/" | render -v utc=1952)" "T|B|105|160|240|141||-12°"  # shrinks to fit
 expect "$out" "||9° / 2°"
-expect "$out" "|g|40% rain · 12 km/h"
+expect "$out" "|g|40% rain · 12 mph"
 expect "$out" "||11° / 3°"                 # tomorrow uses tomorrow's values
 expect "$out" "|g|0% rain"
 expect "$out" "|cg|21:00"                  # first slot after 20:45
@@ -50,50 +50,31 @@ expect "$week" "|g|Thu"                    # 5 November
 expect "$week" "|g|Fri"
 expect "$week" "I|dots-2|"                 # 40% and 37% -> two dots
 expect "$week" "I|dots-0|"                 # 0%
-expect "$week" "|g|<1 mm"
+expect "$week" "|g|<0.1 in"
 expect "$week" "|g|dry"
-expect "$week" "|g|16 mm"
+expect "$week" "|g|0.6 in"
 expect "$week" "R|434|131|80|6|GRAYD"      # range track on the first row
 expect "$week" "R|434|131|56|6|B"          # today 2-9 within the 10 days' 2-12
 [ "$(printf '%s\n' "$week" | grep -c '^I|dots-')" = 10 ] || { echo "10d tab should have 10 rows"; fail=1; }
 case "$week" in *Tomorrow*) echo "10d tab drew the Today view"; fail=1 ;; esac
-pray=$(mktemp)
-printf 'day,2026-11-04\nFajr,05:01\nSunrise,06:47\nDhuhr,11:38\nAsr,14:05\nMaghrib,16:28\nIsha,18:09\n' > "$pray"
-card=$(fixture | awk -v place=Vienna -v batt=87 -v utc=1530 -v card=1 -f render.awk - "$pray")  # 16:30 local
-late=$(fixture | awk -v place=Vienna -v batt=87 -v utc=1530 -v clock=2130 -v card=1 -f render.awk - "$pray")  # fetched 16:30, now 22:30
-old=$(fixture | sed 's/^2026-11-04T20:45/2026-11-05T20:45/' | awk -v place=Vienna -v utc=1530 -v card=1 -f render.awk - "$pray")
-rm -f "$pray"
-expect "$card" "|cg|Fajr"
-expect "$card" "|cg|05:01"                 # past prayers in grey
-expect "$card" "|cg|16:28"                 # Maghrib is just past at 16:30
-expect "$card" "T|B|24|20|300|524||Prayer times"  # title on the left
-expect "$card" "T|R|18|336|4|528|g|Wednesday 4 November 2026"  # date right-aligned to x=580
-expect "$card" "R|400|664|169|86|B"        # next prayer (Isha) inverted
-expect "$card" "|ci|18:09"
-expect "$late" "|cg|18:09"
-case "$late" in *"|ci|"*) echo "nothing should be highlighted after Isha"; fail=1 ;; esac
-expect "$old" "|g|Wednesday 4 November 2026"   # older times say which day they are for
-case "$old" in *"|ci|"*) echo "another day's times must not be highlighted"; fail=1 ;; esac
-case "$card" in *"||November"*) echo "prayer card also drew the date card"; fail=1 ;; esac
-expect "$(fixture | render -v utc=1530 -v card=1)" "Not loaded yet"
+case "$out" in *"R|286|768|"*) echo "one card: no card dots"; fail=1 ;; esac
+expect "$(fixture | render -v utc=1952 -v cards=2)" "R|286|768|8|8|B"  # first of two dots filled
+expect "$(fixture | render -v utc=1952 -v cards=2 -v card=1)" "R|306|768|8|8|B"
 empty=$(printf '' | render)
 expect "$empty" "||Vienna"                 # the place name is the way Home
 expect "$empty" "No weather data yet"
-# Battery scheduling from loop.sh: hourly refreshes, none at night, wakes at prayer times.
-eval "$(sed -n '/^utc_offset()/p;/^next_refresh()/,/^}/p;/^prayer_wake()/,/^}/p' loop.sh)"
+# Battery scheduling from loop.sh: hourly refreshes, none at night.
+eval "$(sed -n '/^utc_offset()/p;/^next_refresh()/,/^}/p' loop.sh)"
 DIR=$(mktemp -d); fixture > "$DIR/weather.csv"  # UTC+1
-printf 'day,2026-11-04\nFajr,05:01\nSunrise,06:47\nDhuhr,11:38\nAsr,14:05\nMaghrib,16:28\nIsha,18:09\n' > "$DIR/prayer.txt"
 INTERVAL=3600; NIGHT="23 6"
 same() { [ "$1" = "$2" ] || { echo "$3: got $1, want $2"; fail=1; }; }
 same "$(next_refresh 1793821500)" 1793825100 "20:45 local -> 21:45"
 same "$(next_refresh 1793827800)" 1793854800 "22:30 local -> 06:00 next morning"
 same "$(next_refresh 1793754000)" 1793768400 "02:00 local -> 06:00 same morning"
 NIGHT=""; same "$(next_refresh 1793827800)" 1793831400 "no night window -> 23:30"
-same "$(prayer_wake 1793806200)" 1793812145 "16:30 local -> just after Isha 18:09"
-same "$(prayer_wake 1793827800)" 1793833205 "22:30 local -> just after midnight"
 rm -rf "$DIR"
 # Everything must fit on the 600x800 screen.
-printf '%s\n%s\n%s\n' "$out" "$week" "$card" | awk -F'|' '
+printf '%s\n%s\n' "$out" "$week" | awk -F'|' '
     $1 == "R" { x = $2; y = $3; r = $2 + $4; b = $3 + $5 }
     $1 == "I" { n = split($2, p, "-"); w = h = p[n] + 0; if ($2 ~ /^dots/) { w = 110; h = 14 }
                 x = $3; y = $4; r = $3 + w; b = $4 + h }

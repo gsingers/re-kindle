@@ -2,7 +2,7 @@
 # Records what this Kindle has, so the dashboard can be tuned to it, plus
 # 12 seconds of raw touch events while the Kindle UI is paused (the Home-bar test).
 DIR=/mnt/us/extensions/dashboard
-URL="api.open-meteo.com/v1/forecast?latitude=48.2&longitude=16.37&current=temperature_2m&format=csv"
+URL="api.open-meteo.com/v1/forecast?latitude=35.23&longitude=-80.84&current=temperature_2m&format=csv"
 eips 0 38 "Probe running (about 30 s). Don't tap yet."
 {
     echo "--- time"; date; date -u

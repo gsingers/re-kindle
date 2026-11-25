@@ -5,15 +5,14 @@
 # To save battery, between refreshes Wi-Fi is off and the Kindle is suspended (the e-ink
 # keeps showing the dashboard); an RTC alarm wakes it for the next refresh. Taps don't
 # work while it sleeps: the power button wakes it for IDLE seconds of tabs/Home.
-# Battery savers: hourly refreshes, none at NIGHT, no redraw when the screen would come out
-# the same, and while the prayer card shows, short Wi-Fi-free wakes at each prayer time
-# (and midnight) so the next-prayer highlight moves on.
+# Battery savers: hourly refreshes, none at NIGHT, and no redraw when the screen would come out
+# the same.
 
 # Tuning knobs
-PLACE="Vienna"
-LAT=48.2049
-LON=16.3662
-TIMEZONE="Europe%2FVienna"
+PLACE="Charlotte"
+LAT=35.2271
+LON=-80.8431
+TIMEZONE="America%2FNew_York"
 INTERVAL=3600               # seconds between weather refreshes (forecasts update about hourly)
 NIGHT="1 7"                 # local hours with no refreshes: from 01:00 it sleeps until 07:00
                             # (empty = refresh all night)
@@ -25,10 +24,8 @@ SLEEP=1                     # 1 = suspend between refreshes, 0 = stay awake (Wi-
 TOUCH=/dev/input/event1     # touchscreen device
 HOME_ZONE="220 52"          # touching the place name (left of x=220, above y=52) goes Home
 TABS_BOTTOM=98              # touches from y=52 to here pick a tab: left half Today, right half 10 days
-CARD_TOP=506                # on Today, touches below this y switch the bottom card (date / prayer times)
-CARDS=2                     # number of bottom cards (see render.awk)
-PRAYER_METHOD=3             # aladhan.com calculation method: 3 = Muslim World League, 13 = Diyanet,
-                            # 2 = ISNA, 4 = Umm al-Qura (full list: aladhan.com/calculation-methods)
+CARD_TOP=506                # on Today, touches below this y switch the bottom card
+CARDS=1                     # number of bottom cards (see render.awk; 0 = date)
 FONT=""                     # leave empty to pick a Kindle system font automatically
 FONT_BOLD=""
 GREY=BLACK                  # colour of secondary text: BLACK, or a grey from GRAY1 (darkest) to GRAYE
@@ -38,20 +35,10 @@ POWER_STATE=${POWER_STATE:-/sys/power/state}
 RTC=${RTC:-/sys/class/rtc}
 FBINK="$DIR/bin/fbink"
 # Plain http on purpose: the Kindle's old TLS stack may not manage modern https.
-URL="http://api.open-meteo.com/v1/forecast?latitude=$LAT&longitude=$LON&timezone=$TIMEZONE&forecast_days=10&format=csv&current=temperature_2m,weather_code,relative_humidity_2m,is_day,apparent_temperature,wind_speed_10m&hourly=temperature_2m,weather_code,precipitation_probability,is_day&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,precipitation_sum,sunrise,sunset"
+URL="http://api.open-meteo.com/v1/forecast?latitude=$LAT&longitude=$LON&timezone=$TIMEZONE&forecast_days=10&format=csv&temperature_unit=fahrenheit&wind_speed_unit=mph&precipitation_unit=inch&current=temperature_2m,weather_code,relative_humidity_2m,is_day,apparent_temperature,wind_speed_10m&hourly=temperature_2m,weather_code,precipitation_probability,is_day&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,precipitation_sum,sunrise,sunset"
 
 fetch() {
     curl -s -f -m 15 -o "$1" "$URL" 2>/dev/null || wget -q -T 15 -O "$1" "$URL"
-}
-
-# Today's prayer times from aladhan.com (https only), saved as "name,HH:MM" lines in
-# prayer.txt with "day,YYYY-MM-DD" first, so it is fetched once a day. $1 = local date.
-fetch_prayer() {
-    u="https://api.aladhan.com/v1/timings/$(echo "$1" | awk -F- '{ print $3 "-" $2 "-" $1 }')?latitude=$LAT&longitude=$LON&method=$PRAYER_METHOD&timezonestring=$TIMEZONE"
-    curl -s -S -f -m 15 -o "$DIR/prayer.json" "$u" || { echo "$(date) prayer times: fetch failed"; return; }
-    grep -oE '"(Fajr|Sunrise|Dhuhr|Asr|Maghrib|Isha)":"[0-9]{2}:[0-9]{2}' "$DIR/prayer.json" | sed 's/"//g; s/:/,/' > "$DIR/prayer.new"
-    [ "$(grep -c , "$DIR/prayer.new")" -ge 6 ] || { echo "$(date) prayer times: unexpected reply"; return; }
-    { echo "day,$1"; cat "$DIR/prayer.new"; } > "$DIR/prayer.txt"
 }
 
 pick_font() {  # first /usr/java/lib/fonts TTF matching one of the patterns, in order
@@ -135,7 +122,7 @@ echo "$(date) starting"
 echo "fonts: $FONT / $FONT_BOLD"
 if "$FBINK" -e > /dev/null 2>&1 && [ -n "$FONT" ]; then draw=draw_fbink; else draw=draw_eips; echo "fbink or fonts unavailable, using eips"; fi
 
-# Let KUAL close cleanly before the UI is paused.
+# Let the launcher (scriptlet or KUAL) close cleanly before the UI is paused.
 sleep 5
 # Only pause the Kindle UI when the Home button can work; otherwise there'd be no way back.
 # (A failed "exec 3<" would end this shell, so check the device first.)
@@ -157,10 +144,6 @@ refresh() {
         if fetch "$DIR/weather.new" && grep -q '^time' "$DIR/weather.new"; then
             mv "$DIR/weather.new" "$DIR/weather.csv"
             stale=0; good_utc=$(date -u +%H%M)
-            # Prayer times once a day, while Wi-Fi is on anyway. The local date comes from
-            # the weather data (the Kindle's clock is UTC).
-            day=$(sed -n 5p "$DIR/weather.csv" | cut -c1-10)
-            [ "$(sed -n 's/^day,//p' "$DIR/prayer.txt" 2>/dev/null)" = "$day" ] || fetch_prayer "$day"
             break
         fi
         [ $(($(date +%s) - t0)) -ge "$WIFI_WAIT" ] && { echo "$(date) fetch failed for $WIFI_WAIT s"; break; }
@@ -186,15 +169,6 @@ next_refresh() {
         printf "%d\n", n }'
 }
 
-# Epoch just after the next prayer time (or midnight, when the highlight starts over)
-# after epoch $1. The times are local "HH:MM" lines in prayer.txt.
-prayer_wake() {
-    awk -F, -v now="$1" -v off="$(utc_offset)" '
-        BEGIN { s = (now + off) % 86400; best = 86400 }
-        $2 ~ /^[0-9][0-9]:[0-9][0-9]$/ { t = substr($2, 1, 2) * 3600 + substr($2, 4, 2) * 60; if (t > s && t < best) best = t }
-        END { printf "%d\n", now - s + best + 5 }' "$DIR/prayer.txt"
-}
-
 # Suspends until epoch $1 (RTC alarm) or the power button, whichever comes first.
 # After 3 suspends in a row that fail or return at once, stays awake for good (SLEEP=0).
 suspend_until() {
@@ -218,9 +192,8 @@ suspend_until() {
 
 # One loop does all the drawing, so the touch watcher never draws over it.
 # Awake, it checks for taps every second; once idle on Today it sleeps until the next refresh.
-tab=today; card=0; touched=$(date +%s); due=0; pdue=""; stale=0; good_utc=""; fails=0
+tab=today; card=0; touched=$(date +%s); due=0; stale=0; good_utc=""; fails=0
 rm -f "$DIR/tap" "$DIR/screen.key"  # no screen.key: the first draw always happens
-[ -f "$DIR/prayer.txt" ] || : > "$DIR/prayer.txt"  # awk needs it to exist
 # Keep powerd from blanking the screen or suspending on its own timer while we are awake.
 lipc-set-prop com.lab126.powerd preventScreenSaver 1
 while :; do
@@ -239,11 +212,10 @@ while :; do
         echo "$(date) next refresh in $(((due - $(date +%s)) / 60)) min"
         redraw=1
     fi
-    [ -n "$pdue" ] && [ "$now" -ge "$pdue" ] && redraw=1  # a prayer time passed
     if [ -n "$redraw" ]; then
         t0=$(date +%s)
-        awk -v place="$PLACE" -v stale="$stale" -v utc="$good_utc" -v clock="$(date -u +%H%M)" -v tab="$tab" -v batt="$batt" -v card="$card" \
-            -f "$DIR/render.awk" "$DIR/weather.csv" "$DIR/prayer.txt" > "$DIR/screen.new"
+        awk -v place="$PLACE" -v stale="$stale" -v utc="$good_utc" -v tab="$tab" -v batt="$batt" -v card="$card" -v cards="$CARDS" \
+            -f "$DIR/render.awk" "$DIR/weather.csv" > "$DIR/screen.new"
         # A full e-ink redraw costs battery: skip it when the screen would come out the same
         # (the "Updated" time alone doesn't count).
         key=$(grep -v '|Updated ' "$DIR/screen.new")
@@ -255,10 +227,8 @@ while :; do
             echo "$(date) drew $tab in $(($(date +%s) - t0)) s"
         fi
     fi
-    pdue=""; [ "$card" = 1 ] && pdue=$(prayer_wake "$(date +%s)")
     if [ "$SLEEP" = 1 ] && [ "$tab" = today ] && [ $(($(date +%s) - touched)) -ge "$IDLE" ]; then
-        wake=$due; [ -n "$pdue" ] && [ "$pdue" -lt "$wake" ] && wake=$pdue
-        suspend_until "$wake"
+        suspend_until "$due"
     else
         sleep 1
     fi
